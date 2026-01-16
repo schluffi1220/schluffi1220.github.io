@@ -30,6 +30,7 @@
   .status { margin-top: 10px; padding: 10px; border-radius: 10px; border: 1px solid #ddd; background: #fafafa; }
   .topbar { display:flex; align-items:center; justify-content:space-between; gap: 10px; }
   .link { font-size: 14px; text-decoration: underline; cursor: pointer; opacity: 0.85; user-select:none; }
+  .row2 { display:grid; grid-template-columns: 1fr 1fr; gap:10px; }
 
   /* Details: ganze Zeile klickbar */
   details summary {
@@ -49,7 +50,23 @@
   .pill.blue { background:#e3f2fd; }
   .pill.green { background:#e8f5e9; }
 
-  .row2 { display:grid; grid-template-columns: 1fr 1fr; gap:10px; }
+  /* ===== Variante B: kompakte Maschinenliste ===== */
+  .machine-row {
+    display: grid;
+    grid-template-columns: 26px 1fr auto;
+    gap: 10px;
+    align-items: center;
+    padding: 10px;
+    border-bottom: 1px solid #e0e0e0;
+  }
+  .machine-row:last-child { border-bottom: none; }
+  .machine-status { width: 14px; height: 14px; border-radius: 50%; }
+  .machine-status.free { background: #2e7d32; }
+  .machine-status.busy { background: #1565c0; }
+  .machine-status.bad  { background: #c62828; }
+  .machine-title { font-weight: bold; }
+  .machine-sub { font-size: 13px; opacity: 0.85; }
+  .machine-actions button { width:auto; padding: 6px 10px; font-size: 14px; margin-top:0; }
 </style>
 </head>
 <body>
@@ -64,16 +81,13 @@
 
 <!-- NEWS (nur auto-open wenn neu) -->
 <details id="newsDetails" style="margin-top:10px; display:none;">
-  <summary><b>Neu in der Version: klick mich an.</b> <span id="newsBadge" class="pill" style="display:none;">NEU</span></summary>
+  <summary><b>Neu in der Version</b> <span id="newsBadge" class="pill" style="display:none;">NEU</span></summary>
   <div class="card" style="border-top-left-radius:0;border-top-right-radius:0;">
     <div id="newsTextBox" class="small"></div>
   </div>
 </details>
 
 <div id="status" class="status">Lade…</div>
-
-<!-- Maschinenübersicht (zwischen Bereit und 1) Zugang) -->
-
 
 <h2>1) Zugang</h2>
 <label>Zimmernummer</label>
@@ -87,9 +101,6 @@
 
 <button onclick="refreshAll()">Aktualisieren</button>
 
-<h2>Maschinenübersicht</h2>
-<div id="machinesOverview" class="grid grid2"></div>
-
 <h2>2) Waschmaschinen-Slot buchen</h2>
 <label>Slot auswählen (auch belegte sind sichtbar)</label>
 <select id="washerSlotSelect">
@@ -97,11 +108,15 @@
 </select>
 <button onclick="bookWasher()">Buchen</button>
 
+<!-- Maschinenübersicht: Variante B (unter 2) -->
+<h2>Maschinenübersicht</h2>
+<div id="machinesOverview" class="card"></div>
+
 <h2>Meine gebuchten Maschinen</h2>
 <button onclick="loadMyBookings()">Meine Buchungen aktualisieren</button>
 <div id="myBookings" class="grid"></div>
 
-<!-- Defekt melden -->
+<!-- Defekt melden / freigeben: eins höher als Chat -->
 <details style="margin-top:14px;">
   <summary><b>Maschine als defekt melden / freigeben</b></summary>
   <div class="card" style="border-top-left-radius:0;border-top-right-radius:0;">
@@ -138,8 +153,6 @@
   <textarea id="chatText" rows="3" placeholder="Nachricht an Admin..."></textarea>
   <div id="chatList" class="grid" style="margin-top:10px;"></div>
 </div>
-
-
 
 <!-- Admin Panel -->
 <div id="adminPanel" style="display:none; margin-top: 16px; border-top:1px solid #ddd; padding-top: 12px;">
@@ -256,19 +269,19 @@
 </div>
 
 <script>
-// ====== API BASE ======
+/* ====== API BASE ====== */
 const API_BASE = "https://snowy-breeze-54f8.schluffi1220.workers.dev";
 
 const $ = (id) => document.getElementById(id);
 function apiUrl(path){ if(!path.startsWith("/")) path="/"+path; return API_BASE + path; }
 function setStatus(msg){ $("status").textContent = msg; }
 
-async function jget(url){
-  const r = await fetch(apiUrl(url), { cache:"no-store" });
+async function jget(path){
+  const r = await fetch(apiUrl(path), { cache:"no-store" });
   return await r.json().catch(()=>({}));
 }
-async function jpost(url, body){
-  const r = await fetch(apiUrl(url), {
+async function jpost(path, body){
+  const r = await fetch(apiUrl(path), {
     method:"POST",
     headers:{ "Content-Type":"application/json" },
     body: JSON.stringify(body||{})
@@ -306,7 +319,7 @@ async function confirmAndRun(msg, fn){
 let lastStatus = null;
 let myBookingsCache = [];
 
-// ------------------- NEWS behavior -------------------
+/* ------------------- NEWS behavior ------------------- */
 function updateNewsUI(newsText){
   const details = $("newsDetails");
   const badge = $("newsBadge");
@@ -330,86 +343,84 @@ function updateNewsUI(newsText){
   }
 }
 
-// ------------------- OVERVIEW -------------------
+/* ------------------- Maschinenübersicht: Variante B ------------------- */
 function renderMachinesOverview(status){
   const box = $("machinesOverview");
   box.innerHTML = "";
 
   const machines = status.machines || [];
   const bookings = status.bookings || [];
-  const occ = new Map();
+
+  const active = new Map();
   for(const b of bookings){
-    occ.set(`${b.type}:${b.machine}`, b);
+    active.set(`${b.type}:${b.machine}`, b);
   }
 
-  // Sort: washer 1..4 then dryer 1..4
   machines.sort((a,b)=>{
-    if(a.type!==b.type) return a.type.localeCompare(b.type);
-    return Number(a.machine)-Number(b.machine);
+    if(a.type !== b.type) return a.type.localeCompare(b.type);
+    return Number(a.machine) - Number(b.machine);
   });
 
   for(const m of machines){
-    const b = occ.get(`${m.type}:${m.machine}`);
-    const enabled = Number(m.enabled)===1;
-    const defect = Number(m.defect)===1;
+    const key = `${m.type}:${m.machine}`;
+    const b = active.get(key);
 
-    let cls = "free";
+    let statusClass = "free";
     let statusText = "Frei";
-    if(defect){ cls="bad"; statusText="Defekt"; }
-    else if(b){ cls="busy"; statusText="Belegt"; }
-    if(!enabled && !defect){ cls="disabled"; statusText="Gesperrt"; }
 
-    const title = (m.type==="washer" ? "Waschmaschine " : "Trockner ") + m.machine;
-    let line2 = "";
-    if(b){
-      line2 = `Belegt von Zimmer ${escapeHtml(b.room||"?")} bis ${fmtTime(b.end)}`;
-    } else {
-      line2 = `Zuletzt: ${escapeHtml(m.lastRoom||"-")}`;
+    const enabled = Number(m.enabled) === 1;
+    const defect = Number(m.defect) === 1;
+
+    if(defect){
+      statusClass = "bad";
+      statusText = "Defekt";
+    } else if(!enabled){
+      statusClass = "bad";
+      statusText = "Gesperrt";
+    } else if(b){
+      statusClass = "busy";
+      statusText = `Belegt bis ${fmtTime(b.end)} (Zimmer ${escapeHtml(b.room||"?")})`;
     }
-    if(defect && m.defectBy){
-      line2 += ` | gemeldet von: ${escapeHtml(m.defectBy)}`;
-    }
 
-    const card = document.createElement("div");
-    card.className = `card ${cls}`;
-    card.innerHTML = `<b>${title}</b> <span class="pill ${cls==="free"?"green":(cls==="busy"?"blue":"red")}">${statusText}</span><br><div class="small">${line2}</div>`;
+    const row = document.createElement("div");
+    row.className = "machine-row";
 
-    // Dryer buttons in overview:
-    if(m.type==="dryer"){
-      const { room, pin, stationPin } = needAccess_();
+    row.innerHTML = `
+      <div class="machine-status ${statusClass}"></div>
+      <div>
+        <div class="machine-title">${m.type === "washer" ? "Waschmaschine" : "Trockner"} ${m.machine}</div>
+        <div class="machine-sub">${statusText}</div>
+      </div>
+      <div class="machine-actions"></div>
+    `;
 
-      if(!enabled || defect){
-        const btn = document.createElement("button");
-        btn.textContent = "Nicht verfügbar";
-        btn.disabled = true;
-        card.appendChild(btn);
-      } else if(!b) {
+    const actions = row.querySelector(".machine-actions");
+
+    // Aktionen nur für Trockner
+    if(m.type === "dryer" && enabled && !defect){
+      if(!b){
         const btn = document.createElement("button");
         btn.textContent = "Buchen";
-        btn.onclick = ()=>bookDryer(Number(m.machine));
-        card.appendChild(btn);
+        btn.onclick = () => bookDryer(Number(m.machine));
+        actions.appendChild(btn);
       } else {
-        // show "FERTIG" only if this booking is yours (exists in myBookingsCache)
-        const mine = myBookingsCache.find(x=>x.type==="dryer" && Number(x.machine)===Number(m.machine));
+        const mine = myBookingsCache.find(x =>
+          x.type === "dryer" && Number(x.machine) === Number(m.machine)
+        );
         if(mine){
           const btn = document.createElement("button");
           btn.textContent = "FERTIG";
-          btn.onclick = ()=>finishDryer(mine.id);
-          card.appendChild(btn);
-        } else {
-          const btn = document.createElement("button");
-          btn.textContent = "Belegt";
-          btn.disabled = true;
-          card.appendChild(btn);
+          btn.onclick = () => finishDryer(mine.id);
+          actions.appendChild(btn);
         }
       }
     }
 
-    box.appendChild(card);
+    box.appendChild(row);
   }
 }
 
-// ------------------- SLOTS -------------------
+/* ------------------- SLOTS ------------------- */
 async function loadWasherSlots(){
   const sel = $("washerSlotSelect");
   sel.innerHTML = `<option value="">Bitte auswählen</option>`;
@@ -432,7 +443,6 @@ async function loadWasherSlots(){
     return;
   }
 
-  // build options; disabled if not bookable
   for(const s of slots){
     const opt = document.createElement("option");
     opt.value = JSON.stringify({ machine:s.machine, start:s.start, end:s.end, bookable:s.bookable });
@@ -465,11 +475,9 @@ async function bookWasher(){
     end: slot.end
   });
 
-  if(data.ok){
-    alert("Buchung erfolgreich.");
-  }else{
-    alert(data.error || "Fehler beim Buchen.");
-  }
+  if(data.ok) alert("Buchung erfolgreich.");
+  else alert(data.error || "Fehler beim Buchen.");
+
   await refreshAll();
 }
 
@@ -481,10 +489,11 @@ async function bookDryer(machine){
   const { data } = await jpost("/api/dryer/book", { room, pin, stationPin, machine });
   if(data.ok) alert("Trockner gebucht.");
   else alert(data.error || "Fehler.");
+
   await refreshAll();
 }
 
-// ------------------- MY BOOKINGS -------------------
+/* ------------------- MY BOOKINGS ------------------- */
 async function loadMyBookings(){
   const box = $("myBookings");
   box.innerHTML = "";
@@ -511,7 +520,6 @@ async function loadMyBookings(){
     return;
   }
 
-  // map machine states from lastStatus to color bookings red if machine is defect
   const defectMap = new Map();
   if(lastStatus?.machines){
     for(const m of lastStatus.machines){
@@ -522,7 +530,7 @@ async function loadMyBookings(){
   for(const b of list){
     const isDefect = defectMap.get(`${b.type}:${b.machine}`) === true;
     const card = document.createElement("div");
-    card.className = `card ${isDefect ? "bad" : (b.type==="dryer" ? "busy" : "busy")}`;
+    card.className = `card ${isDefect ? "bad" : "busy"}`;
 
     const title = (b.type==="washer" ? "Waschmaschine " : "Trockner ") + b.machine;
     const line = (b.type==="washer")
@@ -557,6 +565,7 @@ async function cancelBooking(id){
   const { data } = await jpost("/api/cancel", { id, pin });
   if(data.ok) alert("Storniert.");
   else alert(data.error || "Fehler.");
+
   await refreshAll();
 }
 
@@ -568,10 +577,11 @@ async function finishDryer(id){
   const { data } = await jpost("/api/dryer/finish", { id, pin });
   if(data.ok) alert("Erledigt.");
   else alert(data.error || "Fehler.");
+
   await refreshAll();
 }
 
-// ------------------- DEFECT -------------------
+/* ------------------- DEFECT ------------------- */
 async function userSetDefect(action){
   const { room, stationPin } = needAccess_();
   const type = $("defType").value;
@@ -586,10 +596,11 @@ async function userSetDefect(action){
   const { data } = await jpost("/api/user/set-defect", { stationPin, room, type, machine, action });
   if(data.ok) alert("Gespeichert.");
   else alert(data.error || "Fehler.");
+
   await refreshAll();
 }
 
-// ------------------- CHAT (USER) -------------------
+/* ------------------- CHAT (USER) ------------------- */
 let userChatPopupShown = false;
 
 async function checkUserChatUnread(){
@@ -601,12 +612,11 @@ async function checkUserChatUnread(){
 
   const c = Number(data.count || 0);
   if(c > 0){
-    // Popup nur 1x
     if(!userChatPopupShown){
       userChatPopupShown = true;
       alert("📩 Neue Nachricht vom Admin im Chat.");
     }
-    // Automatisch Chat laden, wenn neue sichtbar vorhanden
+    // Auto-laden wenn neue sichtbare Nachricht da ist
     await loadUserChat();
   }
 }
@@ -646,10 +656,9 @@ async function sendUserChat(){
 
   $("chatText").value = "";
   await loadUserChat();
-  // admin unread popup happens on their side
 }
 
-// ------------------- ADMIN -------------------
+/* ------------------- ADMIN ------------------- */
 function toggleAdmin(){
   const p = $("adminPanel");
   p.style.display = (p.style.display==="none" ? "block" : "none");
@@ -689,8 +698,6 @@ async function adminUnlock(){
   $("newsEnabled").checked = !!st2.newsEnabled;
 
   await renderAdminMachines();
-
-  // unread popup for admin chat
   await checkAdminChatUnread(true);
 
   alert("Admin freigeschaltet.");
@@ -864,7 +871,7 @@ async function adminChangePw(){
   });
 }
 
-// ------------------- ADMIN CHAT -------------------
+/* ------------------- ADMIN CHAT ------------------- */
 let adminSelectedRoom = null;
 let adminChatPopupShown = false;
 
@@ -991,7 +998,7 @@ async function adminSendChat(){
   await adminLoadChat();
 }
 
-// ------------------- ADMIN LOG -------------------
+/* ------------------- ADMIN LOG ------------------- */
 async function adminLoadLog(){
   const pw = adminPw_();
   if(!pw) return alert("Admin-Passwort fehlt.");
@@ -1017,7 +1024,7 @@ async function adminLoadLog(){
   }
 }
 
-// ------------------- REFRESH FLOW -------------------
+/* ------------------- REFRESH FLOW ------------------- */
 async function refreshAll(){
   setStatus("Aktualisiere…");
   const st = await jget("/api/status");
@@ -1029,18 +1036,16 @@ async function refreshAll(){
 
   updateNewsUI(st.newsText || "");
 
-  // load my bookings first so overview can show dryer finish button correctly
   await loadMyBookings();
   renderMachinesOverview(st);
 
   await loadWasherSlots();
-
   await checkUserChatUnread();
 
   setStatus("Bereit.");
 }
 
-
+/* -------- Enter im Admin-Passwortfeld = Login -------- */
 window.addEventListener("load", () => {
   const apw = document.getElementById("adminPw");
   if(apw){
@@ -1052,8 +1057,13 @@ window.addEventListener("load", () => {
     });
   }
 });
-  
-// initial load
+
+/* optional: Chat-Unread check alle 20s */
+setInterval(() => {
+  checkUserChatUnread().catch(()=>{});
+}, 20000);
+
+/* initial load */
 refreshAll();
 </script>
 
