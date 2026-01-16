@@ -29,6 +29,21 @@
   .row2 { display:grid; grid-template-columns: 1fr 1fr; gap:10px; }
   .topbar { display:flex; align-items:center; justify-content:space-between; gap: 10px; }
   .link { font-size: 14px; text-decoration: underline; cursor: pointer; opacity: 0.8; user-select:none; }
+  details summary {
+  display: block;
+  padding: 12px;
+  border: 1px solid #ddd;
+  border-radius: 12px;
+  background: #f7f7f7;
+  cursor: pointer;
+  user-select: none;
+}
+details[open] summary {
+  border-bottom-left-radius: 0;
+  border-bottom-right-radius: 0;
+}
+details summary::-webkit-details-marker { display:none; }
+details { border-radius: 12px; }
 </style>
 </head>
 <body>
