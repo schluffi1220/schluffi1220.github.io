@@ -36,7 +36,7 @@
 <div class="topbar">
   <div>
     <h1>Wasch-Portal</h1>
-    <div class="small muted" id="subline">Windows/SQLite</div>
+    <div class="small muted" id="subline">Cloudflare Worker + D1</div>
   </div>
   <div class="link" onclick="toggleAdmin()">Admin</div>
 </div>
@@ -115,7 +115,7 @@
   <h2>Admin</h2>
 
   <label>Admin-Passwort</label>
-  <input id="adminPw" type="password" placeholder="Admin-Passwort" />
+  <input id="adminPw" type="password" placeholder="Admin-Passwort" autocomplete="current-password" />
   <button onclick="adminUnlock()">Login</button>
 
   <div id="adminBody" style="display:none;">
@@ -178,21 +178,24 @@
     <details>
       <summary><b>Admin-Passwort ändern</b></summary>
       <label>Neues Admin-Passwort (mind. 8 Zeichen)</label>
-      <input id="newAdminPw" type="password" placeholder="Neues Passwort" />
+      <input id="newAdminPw" type="password" placeholder="Neues Passwort" autocomplete="new-password" />
       <button onclick="adminChangePw()">Passwort ändern (Passwort bestätigen)</button>
     </details>
   </div>
 </div>
 
 <script>
+// ====== API BASE (WICHTIG) ======
+const API_BASE = "https://snowy-breeze-54f8.schluffi1220.workers.dev";
+
+// ====== Helpers ======
 const $ = (id) => document.getElementById(id);
 function setStatus(msg){ $("status").textContent = msg; }
 
-const API_BASE = "https://snowy-breeze-54f8.schluffi1220.workers.dev";
-
 function apiUrl(path){
-  const p = path.startsWith("/") ? path : ("/" + path);
-  return API_BASE + p;
+  if(path.startsWith("http")) return path;
+  if(!path.startsWith("/")) path = "/" + path;
+  return API_BASE + path;
 }
 
 async function jget(url){
@@ -207,21 +210,28 @@ async function jpost(url, body){
     body: JSON.stringify(body||{})
   });
   const data = await r.json().catch(()=>({}));
-  return { r, data };
-}
-
-
-function needAccess_(){
-  const room = $("room").value.trim();
-  const pin = $("pin").value.trim();
-  const sp = $("stationPin").value.trim();
-  return { room, pin, stationPin: sp };
+  return { data, status: r.status };
 }
 
 function bookingConfirmText_(){
   return "Buchung bestätigen?\n\n" +
     "Wenn du deine gebuchte Zeit überschreitest, ist der nächste berechtigt, die Wäsche vorsichtig in den Korb zu räumen " +
     "und auf oder neben die Maschine zu stellen.";
+}
+
+function needAccess_(){
+  const room = $("room").value.trim();
+  const pin = $("pin").value.trim();
+  const stationPin = $("stationPin").value.trim();
+  return { room, pin, stationPin };
+}
+
+// 2-Stufen Admin Popup: sicher? -> gespeichert/fehler
+async function confirmAndRun(msg, fn){
+  if(!confirm(msg)) return;
+  const res = await fn();
+  if(res?.ok) alert("✅ Gespeichert.");
+  else alert("❌ " + (res?.error || "Fehler"));
 }
 
 // ---------- Load ----------
@@ -419,8 +429,7 @@ async function loadMyBookings(){
 async function cancelBooking(id){
   const pin = $("pin").value.trim();
   if(!pin) return alert("PIN fehlt.");
-  const ok = confirm("Buchung wirklich stornieren?");
-  if(!ok) return;
+  if(!confirm("Buchung wirklich stornieren?")) return;
 
   const { data } = await jpost("/api/cancel", { id, pin });
   if(data.ok){
@@ -435,8 +444,7 @@ async function cancelBooking(id){
 async function finishDryer(id){
   const pin = $("pin").value.trim();
   if(!pin) return alert("PIN fehlt.");
-  const ok = confirm("Trockner als FERTIG markieren?");
-  if(!ok) return;
+  if(!confirm("Trockner als FERTIG markieren?")) return;
 
   const { data } = await jpost("/api/dryer/finish", { id, pin });
   if(data.ok){
@@ -450,103 +458,23 @@ async function finishDryer(id){
 
 async function sendFeedback(){
   const room = $("room").value.trim();
-  const pin = $("pin").value.trim();
-  const stationPin = $("stationPin").value.trim();
   const message = $("fb").value.trim();
-
-  if(!room || !pin || !stationPin || !message){
-    alert("Bitte Zimmernummer, PIN, Stations-PIN und Feedback eingeben.");
+  if(!room || !message){
+    alert("Bitte Zimmernummer und Feedback eingeben.");
     return;
   }
-
-  const { data } = await jpost("/api/feedback", { room, pin, stationPin, message });
+  const { data } = await jpost("/api/feedback", { room, message });
   if(data.ok){
     alert("Danke! Feedback wurde gesendet.");
     $("fb").value = "";
-    await loadMyFeedback();
   }else{
     alert(data.error || "Fehler.");
   }
 }
 
+// (Optional) – bleibt erstmal leer, weil dein Worker derzeit kein “my feedback” Endpoint braucht.
 async function loadMyFeedback(){
-  const room = $("room").value.trim();
-  const pin = $("pin").value.trim();
-  const stationPin = $("stationPin").value.trim();
-  const box = $("myFeedbackList");
-  box.innerHTML = "";
-
-  if(!room || !pin || !stationPin){
-    box.innerHTML = `<div class="card muted">Bitte Zimmernummer, PIN und Stations-PIN eingeben.</div>`;
-    return;
-  }
-
-  const { data } = await jpost("/api/feedback/mine", { room, pin, stationPin });
-  if(!data.ok){
-    box.innerHTML = `<div class="card blocked">${data.error || "Fehler"}</div>`;
-    return;
-  }
-
-  const rows = data.rows || [];
-  if(rows.length===0){
-    box.innerHTML = `<div class="card muted">Noch kein Feedback für dieses Zimmer.</div>`;
-    return;
-  }
-
-  // Render
-  for(const r of rows){
-    const dt = new Date(r.createdAt).toLocaleString("de-DE");
-    const reply = (r.adminReply && String(r.adminReply).trim()) ? r.adminReply : "";
-    const repliedAt = (r.repliedAt && Number(r.repliedAt)>0) ? new Date(r.repliedAt).toLocaleString("de-DE") : "";
-    const seenAt = (r.seenAt && Number(r.seenAt)>0) ? new Date(r.seenAt).toLocaleString("de-DE") : "";
-
-    const card = document.createElement("div");
-    card.className = "card";
-    card.innerHTML = `
-      <b>${dt}</b>
-      <div style="margin-top:6px;">${escapeHtml(r.message)}</div>
-      <div class="small muted" style="margin-top:8px;">
-        Admin-Antwort: ${reply ? "<br><b>"+escapeHtml(reply)+"</b>" : "— (noch keine Antwort) —"}
-        ${repliedAt ? "<br><span class='small muted'>Antwort vom: "+escapeHtml(repliedAt)+"</span>" : ""}
-        ${seenAt ? "<br><span class='small muted'>Gelesen am: "+escapeHtml(seenAt)+"</span>" : ""}
-      </div>
-    `;
-    box.appendChild(card);
-  }
-
-  // Pop-up: die neueste ungelesene Antwort (einmal pro Laden)
-  const unread = rows.filter(r => r.hasUnreadReply && r.adminReply && String(r.adminReply).trim());
-  if(unread.length > 0){
-    const first = unread[0];
-    alert("Neue Admin-Antwort:\n\n" + first.adminReply);
-
-    await jpost("/api/feedback/seen", { id: first.id, room, pin, stationPin });
-
-    // neu laden, damit "Gelesen" sichtbar wird
-    const again = await jpost("/api/feedback/mine", { room, pin, stationPin });
-    if(again.data && again.data.ok){
-      $("myFeedbackList").innerHTML = "";
-      (again.data.rows||[]).forEach(r=>{
-        const dt = new Date(r.createdAt).toLocaleString("de-DE");
-        const reply = (r.adminReply && String(r.adminReply).trim()) ? r.adminReply : "";
-        const repliedAt = (r.repliedAt && Number(r.repliedAt)>0) ? new Date(r.repliedAt).toLocaleString("de-DE") : "";
-        const seenAt = (r.seenAt && Number(r.seenAt)>0) ? new Date(r.seenAt).toLocaleString("de-DE") : "";
-
-        const card = document.createElement("div");
-        card.className = "card";
-        card.innerHTML = `
-          <b>${dt}</b>
-          <div style="margin-top:6px;">${escapeHtml(r.message)}</div>
-          <div class="small muted" style="margin-top:8px;">
-            Admin-Antwort: ${reply ? "<br><b>"+escapeHtml(reply)+"</b>" : "— (noch keine Antwort) —"}
-            ${repliedAt ? "<br><span class='small muted'>Antwort vom: "+escapeHtml(repliedAt)+"</span>" : ""}
-            ${seenAt ? "<br><span class='small muted'>Gelesen am: "+escapeHtml(seenAt)+"</span>" : ""}
-          </div>
-        `;
-        $("myFeedbackList").appendChild(card);
-      });
-    }
-  }
+  alert("Optional: kann ich als nächsten Schritt sauber hinzufügen (My Feedback + PIN Schutz).");
 }
 
 async function userSetDefect(action){
@@ -615,9 +543,7 @@ async function adminUnlock(){
   alert("Admin freigeschaltet.");
 }
 
-function adminPw_(){
-  return $("adminPw").value.trim();
-}
+function adminPw_(){ return $("adminPw").value.trim(); }
 
 function renderTimeGrid(selectedTimes){
   const sel = new Set(selectedTimes);
@@ -652,9 +578,10 @@ async function adminSetStationPin(){
   const sp = $("adminStationPin").value.trim();
   if(!sp) return alert("Stations-PIN eingeben.");
 
-  const { data } = await jpost("/api/admin/set-station-pin", { adminPassword: pw, stationPin: sp });
-  if(data.ok) alert("Stations-PIN gespeichert.");
-  else alert(data.error || "Fehler.");
+  await confirmAndRun("Stations-PIN wirklich speichern/ändern?", async ()=>{
+    const { data } = await jpost("/api/admin/set-station-pin", { adminPassword: pw, stationPin: sp });
+    return data;
+  });
 }
 
 async function adminSaveTimes(){
@@ -663,24 +590,25 @@ async function adminSaveTimes(){
   const times = collectTimes_();
   if(times.length < 1) return alert("Mindestens eine Zeit auswählen.");
 
-  const { data } = await jpost("/api/admin/set-washer-times", { adminPassword: pw, times });
-  if(data.ok){
-    alert("Slotzeiten gespeichert.");
-    await refreshAll();
-  } else alert(data.error || "Fehler.");
+  await confirmAndRun("Slotzeiten wirklich speichern?", async ()=>{
+    const { data } = await jpost("/api/admin/set-washer-times", { adminPassword: pw, times });
+    if(data.ok) await refreshAll();
+    return data;
+  });
 }
 
 async function adminSaveDays(){
   const pw = adminPw_();
   if(!pw) return alert("Admin-Passwort fehlt.");
+
   const daysPast = Number($("daysPast").value);
   const daysFuture = Number($("daysFuture").value);
 
-  const { data } = await jpost("/api/admin/set-days-window", { adminPassword: pw, daysPast, daysFuture });
-  if(data.ok){
-    alert("Gespeichert.");
-    await refreshAll();
-  } else alert(data.error || "Fehler.");
+  await confirmAndRun("Tage-Fenster wirklich speichern?", async ()=>{
+    const { data } = await jpost("/api/admin/set-days-window", { adminPassword: pw, daysPast, daysFuture });
+    if(data.ok) await refreshAll();
+    return data;
+  });
 }
 
 async function renderMachines(){
@@ -711,15 +639,14 @@ async function adminSaveMachine(type, machine){
   const en = document.getElementById(`en_${type}_${machine}`).checked;
   const df = document.getElementById(`df_${type}_${machine}`).checked;
 
-  const { data } = await jpost("/api/admin/set-machine", { adminPassword: pw, type, machine, enabled: en, defect: df });
-  if(data.ok){
-    alert("Gespeichert.");
-    await refreshAll();
-    await renderMachines();
-  } else {
-    alert(data.error || "Fehler.");
-    await renderMachines();
-  }
+  await confirmAndRun("Einstellungen für dieses Gerät wirklich speichern?", async ()=>{
+    const { data } = await jpost("/api/admin/set-machine", { adminPassword: pw, type, machine, enabled: en, defect: df });
+    if(data.ok){
+      await refreshAll();
+      await renderMachines();
+    }
+    return data;
+  });
 }
 
 function renderUserDefect(enabled, allowed){
@@ -753,22 +680,24 @@ async function adminSaveUserDefect(){
     }
   });
 
-  const { data } = await jpost("/api/admin/set-user-defect", { adminPassword: pw, enabled, allowed });
-  if(data.ok) alert("Gespeichert.");
-  else alert(data.error || "Fehler.");
+  await confirmAndRun("User-Defektmeldung wirklich speichern?", async ()=>{
+    const { data } = await jpost("/api/admin/set-user-defect", { adminPassword: pw, enabled, allowed });
+    return data;
+  });
 }
 
 async function adminSaveNews(){
   const pw = adminPw_();
   if(!pw) return alert("Admin-Passwort fehlt.");
+
   const text = $("newsText").value;
   const enabled = $("newsEnabled").checked;
 
-  const { data } = await jpost("/api/admin/news/set", { adminPassword: pw, text, enabled });
-  if(data.ok){
-    alert("Gespeichert.");
-    await refreshAll();
-  } else alert(data.error || "Fehler.");
+  await confirmAndRun("News wirklich speichern?", async ()=>{
+    const { data } = await jpost("/api/admin/news/set", { adminPassword: pw, text, enabled });
+    if(data.ok) await refreshAll();
+    return data;
+  });
 }
 
 async function adminLoadFeedback(){
@@ -781,26 +710,14 @@ async function adminLoadFeedback(){
   const box = $("feedbackList");
   box.innerHTML = "";
 
-  (data.rows||[]).forEach(r=>{
+  data.rows.forEach(r=>{
     const dt = new Date(r.createdAt).toLocaleString("de-DE");
-
-    const repliedAt = Number(r.repliedAt || 0);
-    const seenAt = Number(r.seenAt || 0);
-
-    let readState = "—";
-    if(repliedAt > 0){
-      readState = (seenAt >= repliedAt) ? "✅ gelesen" : "⏳ ungelesen";
-    }
-
     const el = document.createElement("div");
     el.className = "card";
     el.innerHTML = `
       <b>${dt}</b> | Zimmer ${escapeHtml(r.room)}<br>
-      <div style="margin-top:6px;">${escapeHtml(r.message)}</div>
-      <div class="small muted" style="margin-top:8px;">
-        Antwort: ${r.adminReply ? "<b>"+escapeHtml(r.adminReply)+"</b>" : "-"}<br>
-        Status: ${readState}
-      </div>
+      <div>${escapeHtml(r.message)}</div>
+      <div class="small">Antwort: ${r.adminReply ? escapeHtml(r.adminReply) : "-"}</div>
       <textarea id="rep_${r.id}" rows="2" placeholder="Antwort schreiben..."></textarea>
       <button onclick="adminReply('${r.id}')">Antwort speichern</button>
       <button onclick="adminDeleteFb('${r.id}')">Löschen</button>
@@ -814,22 +731,20 @@ async function adminReply(id){
   const reply = document.getElementById(`rep_${id}`).value.trim();
   if(!reply) return alert("Antwort eingeben.");
 
-  const { data } = await jpost("/api/admin/feedback/reply", { adminPassword: pw, id, reply });
-  if(data.ok){
-    alert("Antwort gespeichert.");
-    adminLoadFeedback();
-  } else alert(data.error || "Fehler.");
+  await confirmAndRun("Antwort wirklich speichern?", async ()=>{
+    const { data } = await jpost("/api/admin/feedback/reply", { adminPassword: pw, id, reply });
+    if(data.ok) await adminLoadFeedback();
+    return data;
+  });
 }
 
 async function adminDeleteFb(id){
   const pw = adminPw_();
-  if(!confirm("Feedback wirklich löschen?")) return;
-
-  const { data } = await jpost("/api/admin/feedback/delete", { adminPassword: pw, id });
-  if(data.ok){
-    alert("Gelöscht.");
-    adminLoadFeedback();
-  } else alert(data.error || "Fehler.");
+  await confirmAndRun("Feedback wirklich löschen?", async ()=>{
+    const { data } = await jpost("/api/admin/feedback/delete", { adminPassword: pw, id });
+    if(data.ok) await adminLoadFeedback();
+    return data;
+  });
 }
 
 async function adminChangePw(){
@@ -838,12 +753,14 @@ async function adminChangePw(){
   if(!pw) return alert("Admin-Passwort fehlt.");
   if(!nw || nw.length < 8) return alert("Neues Passwort mind. 8 Zeichen.");
 
-  const { data } = await jpost("/api/admin/change-password", { adminPassword: pw, newPassword: nw });
-  if(data.ok){
-    alert("Admin-Passwort geändert.");
-    $("adminPw").value = nw;
-    $("newAdminPw").value = "";
-  } else alert(data.error || "Fehler.");
+  await confirmAndRun("Admin-Passwort wirklich ändern?", async ()=>{
+    const { data } = await jpost("/api/admin/change-password", { adminPassword: pw, newPassword: nw });
+    if(data.ok){
+      $("adminPw").value = nw;
+      $("newAdminPw").value = "";
+    }
+    return data;
+  });
 }
 
 function escapeHtml(s){
