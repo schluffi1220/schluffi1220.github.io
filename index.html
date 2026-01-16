@@ -101,18 +101,6 @@
 <button onclick="loadMyBookings()">Meine Buchungen aktualisieren</button>
 <div id="myBookings" class="grid"></div>
 
-<!-- Chat / Feedback -->
-<h2>Feedback / Chat</h2>
-<div class="card">
-  <div class="small muted">Zimmer + PIN erforderlich. Admin kann Antworten “sichtbar für User” freigeben.</div>
-  <div style="margin-top:10px;">
-    <button class="smallbtn" onclick="loadUserChat()">Chat laden</button>
-    <button class="smallbtn" onclick="sendUserChat()">Senden</button>
-  </div>
-  <textarea id="chatText" rows="3" placeholder="Nachricht an Admin..."></textarea>
-  <div id="chatList" class="grid" style="margin-top:10px;"></div>
-</div>
-
 <!-- Defekt melden -->
 <details style="margin-top:14px;">
   <summary><b>Maschine als defekt melden / freigeben</b></summary>
@@ -138,6 +126,20 @@
     <div class="small muted">Hinweis: Bitte zusätzlich der Rezeption Bescheid geben.</div>
   </div>
 </details>
+
+<!-- Chat / Feedback -->
+<h2>Feedback / Chat</h2>
+<div class="card">
+  <div class="small muted">Zimmer + PIN erforderlich. Admin kann Antworten “sichtbar für User” freigeben.</div>
+  <div style="margin-top:10px;">
+    <button class="smallbtn" onclick="loadUserChat()">Chat laden</button>
+    <button class="smallbtn" onclick="sendUserChat()">Senden</button>
+  </div>
+  <textarea id="chatText" rows="3" placeholder="Nachricht an Admin..."></textarea>
+  <div id="chatList" class="grid" style="margin-top:10px;"></div>
+</div>
+
+
 
 <!-- Admin Panel -->
 <div id="adminPanel" style="display:none; margin-top: 16px; border-top:1px solid #ddd; padding-top: 12px;">
@@ -1038,6 +1040,19 @@ async function refreshAll(){
   setStatus("Bereit.");
 }
 
+
+window.addEventListener("load", () => {
+  const apw = document.getElementById("adminPw");
+  if(apw){
+    apw.addEventListener("keydown", (e) => {
+      if(e.key === "Enter"){
+        e.preventDefault();
+        adminUnlock();
+      }
+    });
+  }
+});
+  
 // initial load
 refreshAll();
 </script>
