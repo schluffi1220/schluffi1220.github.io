@@ -593,9 +593,17 @@ async function checkUserChatUnread(){
   if(!room || !pin) return;
 
   const { data } = await jpost("/api/chat/user/unread-count", { room, pin });
-  if(data.ok && Number(data.count)>0 && !userChatPopupShown){
-    userChatPopupShown = true;
-    alert("📩 Neue Nachricht vom Admin im Chat.");
+  if(!data.ok) return;
+
+  const c = Number(data.count || 0);
+  if(c > 0){
+    // Popup nur 1x
+    if(!userChatPopupShown){
+      userChatPopupShown = true;
+      alert("📩 Neue Nachricht vom Admin im Chat.");
+    }
+    // Automatisch Chat laden, wenn neue sichtbar vorhanden
+    await loadUserChat();
   }
 }
 
