@@ -5,76 +5,61 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <title>Wasch-Portal</title>
 <style>
-  :root{
-    --dot-free:#2e7d32;
-    --dot-busy:#1565c0;
-    --dot-bad:#c62828;     /* Standard rot */
-  }
-  body.theme-highcontrast{
-    --dot-bad:#d81b60;     /* High-Contrast Magenta */
-  }
-
   body { font-family: Arial, sans-serif; margin: 14px; max-width: 980px; }
   h1 { margin: 0 0 6px; }
   h2 { margin: 14px 0 8px; }
   label { font-weight: bold; display:block; margin-top: 10px; }
   input, select, textarea {
-    width: 100%; padding: 10px; margin-top: 6px; box-sizing: border-box;
+    width: 100%; padding: 10px; margin-top: 5px; box-sizing: border-box;
     font-size: 16px; border-radius: 10px; border: 1px solid #ddd;
   }
   button {
     width: 100%; padding: 11px; margin-top: 8px; cursor: pointer;
     font-size: 16px; border-radius: 10px; border: 1px solid #ddd; background: #f2f2f2;
   }
-  button.smallbtn { width:auto; padding:8px 10px; margin: 6px 6px 0 0; font-size: 14px; }
+
   .grid { display: grid; grid-template-columns: 1fr; gap: 10px; }
-  @media (min-width: 760px){ .grid2 { grid-template-columns: 1fr 1fr; } }
   .card { border: 1px solid #ddd; border-radius: 12px; padding: 12px; }
   .free { background: #e8f5e9; }
   .busy { background: #e3f2fd; }
-  .bad  { background: #ffebee; }
-  .disabled { opacity: 0.7; }
+  .blocked { background: #ffebee; opacity: 0.95; }
+
   .muted { opacity: 0.85; }
   .small { font-size: 13px; opacity: 0.9; }
   .status { margin-top: 10px; padding: 10px; border-radius: 10px; border: 1px solid #ddd; background: #fafafa; }
-  .topbar { display:flex; align-items:center; justify-content:space-between; gap: 10px; }
-  .link { font-size: 14px; text-decoration: underline; cursor: pointer; opacity: 0.85; user-select:none; }
+  details { margin-top: 12px; }
   .row2 { display:grid; grid-template-columns: 1fr 1fr; gap:10px; }
+  .topbar { display:flex; align-items:center; justify-content:space-between; gap: 10px; }
+  .link { font-size: 14px; text-decoration: underline; cursor: pointer; opacity: 0.8; user-select:none; }
 
-  details summary {
-    display: block;
-    padding: 12px;
-    border: 1px solid #ddd;
-    border-radius: 12px;
-    background: #f7f7f7;
-    cursor: pointer;
-    user-select: none;
+  /* ===== Maschinenübersicht: LIST (UI A) ===== */
+  .mlist { border: 1px solid #ddd; border-radius: 12px; overflow: hidden; }
+  .mrow {
+    display:flex; align-items:center; justify-content:space-between; gap:12px;
+    padding: 10px 12px; border-top: 1px solid #eee;
   }
-  details[open] summary { border-bottom-left-radius: 0; border-bottom-right-radius: 0; }
-  details summary::-webkit-details-marker { display:none; }
+  .mrow:first-child { border-top: 0; }
+  .mleft { display:flex; align-items:flex-start; gap:10px; }
+  .mdot { width: 14px; height: 14px; border-radius: 50%; margin-top: 3px; border: 1px solid rgba(0,0,0,0.15); }
+  .mname { font-weight: 700; line-height: 1.2; }
+  .mmeta { font-size: 13px; opacity: 0.85; margin-top: 2px; }
+  .mbtn { width: auto; padding: 8px 12px; font-size: 14px; border-radius: 10px; }
+  .mbtn[disabled]{ opacity: 0.55; cursor: not-allowed; }
 
-  .pill { display:inline-block; padding: 2px 8px; border-radius: 999px; border:1px solid #ddd; font-size: 12px; margin-left: 6px; background: #fff; }
-  .pill.red { background:#ffebee; }
-  .pill.blue { background:#e3f2fd; }
-  .pill.green { background:#e8f5e9; }
+  /* ===== Maschinenübersicht: CARDS (UI B) ===== */
+  .mcards { display: grid; grid-template-columns: 1fr; gap: 10px; }
+  @media (min-width: 760px){ .mcards { grid-template-columns: 1fr 1fr; } }
+  .mcard { border: 1px solid #ddd; border-radius: 12px; padding: 12px; }
+  .mcard .top { display:flex; justify-content:space-between; gap:10px; align-items:flex-start; }
+  .mbadge { display:inline-block; padding: 2px 8px; border-radius: 999px; border:1px solid #ddd; font-size: 12px; }
+  .mbadge.free { background:#e8f5e9; }
+  .mbadge.busy { background:#e3f2fd; }
+  .mbadge.bad  { background:#ffebee; }
 
-  /* Variante B: kompakte Maschinenliste */
-  .machine-row {
-    display: grid;
-    grid-template-columns: 26px 1fr auto;
-    gap: 10px;
-    align-items: center;
-    padding: 10px;
-    border-bottom: 1px solid #e0e0e0;
-  }
-  .machine-row:last-child { border-bottom: none; }
-  .machine-status { width: 16px; height: 16px; border-radius: 50%; outline: 2px solid rgba(0,0,0,0.06); }
-  .machine-status.free { background: var(--dot-free); }
-  .machine-status.busy { background: var(--dot-busy); }
-  .machine-status.bad  { background: var(--dot-bad); outline: 2px solid rgba(0,0,0,0.10); }
-  .machine-title { font-weight: bold; }
-  .machine-sub { font-size: 13px; opacity: 0.85; }
-  .machine-actions button { width:auto; padding: 6px 10px; font-size: 14px; margin-top:0; }
+  /* ===== Theme: High Contrast (Magenta) ===== */
+  body.theme-hc .blocked { background: #ffe0f0; }
+  body.theme-hc .mbadge.bad { background: #ffe0f0; border-color: #d81b60; }
+  body.theme-hc .mdot.bad { background: #d81b60 !important; border-color: #7a0030; }
 </style>
 </head>
 <body>
@@ -82,251 +67,192 @@
 <div class="topbar">
   <div>
     <h1>Wasch-Portal</h1>
-    <div class="small muted" id="subline">GitHub Pages + Cloudflare Worker (D1)</div>
+    <div class="small muted" id="subline">Cloudflare Worker + D1</div>
   </div>
   <div class="link" onclick="toggleAdmin()">Admin</div>
 </div>
 
-<details id="newsDetails" style="margin-top:10px; display:none;">
-  <summary><b>Neu in der Version</b> <span id="newsBadge" class="pill" style="display:none;">NEU</span></summary>
-  <div class="card" style="border-top-left-radius:0;border-top-right-radius:0;">
-    <div id="newsTextBox" class="small"></div>
-  </div>
-</details>
-
+<div id="news" class="status" style="display:none;"></div>
 <div id="status" class="status">Lade…</div>
 
 <h2>1) Zugang</h2>
 <label>Zimmernummer</label>
-<input id="room" placeholder="0 - 400" inputmode="numeric" />
+<input id="room" placeholder="z. B. 316" inputmode="numeric" />
 
 <label>Persönlicher PIN</label>
-<input id="pin" type="password" placeholder="PIN" inputmode="numeric" />
+<input id="pin" type="password" placeholder="4-stellig" inputmode="numeric" />
 
-<label>Stations-PIN (für Buchen / Defekt / Chat)</label>
+<label>Stations-PIN (für Buchen erforderlich)</label>
 <input id="stationPin" type="password" placeholder="Stations-PIN" inputmode="numeric" />
 
 <button onclick="refreshAll()">Aktualisieren</button>
 
-<h2>2) Waschmaschinen-Slot buchen</h2>
-<label>Slot auswählen (auch belegte sind sichtbar)</label>
+<h2>2) Maschinenübersicht</h2>
+<div id="machinesOverview"></div>
+
+<h2>3) Waschmaschinen-Slot buchen</h2>
+<label>Slot</label>
 <select id="washerSlotSelect">
   <option value="">Bitte auswählen</option>
 </select>
 <button onclick="bookWasher()">Buchen</button>
 
-<h2>Maschinenübersicht</h2>
-<div id="machinesOverview" class="card"></div>
-
-<h2>Meine gebuchten Maschinen</h2>
+<h2>4) Meine Buchungen</h2>
 <button onclick="loadMyBookings()">Meine Buchungen aktualisieren</button>
 <div id="myBookings" class="grid"></div>
 
-<details style="margin-top:14px;">
-  <summary><b>Maschine als defekt melden / freigeben</b></summary>
-  <div class="card" style="border-top-left-radius:0;border-top-right-radius:0;">
-    <div class="row2">
-      <div>
-        <label>Gerät</label>
-        <select id="defType">
-          <option value="washer">Waschmaschine</option>
-          <option value="dryer">Trockner</option>
-        </select>
-      </div>
-      <div>
-        <label>Nummer</label>
-        <select id="defMachine">
-          <option value="1">1</option><option value="2">2</option>
-          <option value="3">3</option><option value="4">4</option>
-        </select>
-      </div>
+<details>
+  <summary><b>Maschine als defekt melden / freigeben (mit Stations-PIN)</b></summary>
+  <div class="row2">
+    <div>
+      <label>Gerät</label>
+      <select id="defType">
+        <option value="washer">Waschmaschine</option>
+        <option value="dryer">Trockner</option>
+      </select>
     </div>
-    <button onclick="userSetDefect('defect')">Als defekt melden</button>
-    <button onclick="userSetDefect('free')">Freigeben</button>
-    <div class="small muted">Hinweis: Bitte zusätzlich der Rezeption Bescheid geben.</div>
+    <div>
+      <label>Nummer</label>
+      <select id="defMachine">
+        <option value="1">1</option><option value="2">2</option>
+        <option value="3">3</option><option value="4">4</option>
+      </select>
+    </div>
   </div>
+  <button onclick="userSetDefect('defect')">Als defekt melden</button>
+  <button onclick="userSetDefect('free')">Freigeben</button>
+  <div class="small muted">Hinweis: Bitte zusätzlich der Rezeption Bescheid geben.</div>
 </details>
 
-<h2>Feedback / Chat</h2>
-<div class="card">
-  <div class="small muted">Zimmer + PIN erforderlich. Admin kann Antworten “sichtbar für User” freigeben.</div>
-  <div style="margin-top:10px;">
-    <button class="smallbtn" onclick="loadUserChat()">Chat laden</button>
-    <button class="smallbtn" onclick="sendUserChat()">Senden</button>
-  </div>
-  <textarea id="chatText" rows="3" placeholder="Nachricht an Admin..."></textarea>
-  <div id="chatList" class="grid" style="margin-top:10px;"></div>
-</div>
+<details>
+  <summary><b>Feedback / Problem melden</b></summary>
+  <label>Feedback</label>
+  <textarea id="fb" rows="4" placeholder="Was ist aufgefallen? (z. B. Maschine 2 laut, App klemmt, ...)"></textarea>
+  <button onclick="sendFeedback()">Feedback senden</button>
+</details>
 
+<!-- Admin Panel -->
 <div id="adminPanel" style="display:none; margin-top: 16px; border-top:1px solid #ddd; padding-top: 12px;">
   <h2>Admin</h2>
 
   <label>Admin-Passwort</label>
-  <input id="adminPw" type="password" placeholder="Admin-Passwort" autocomplete="current-password" />
-  <div class="row2">
-    <button onclick="adminUnlock()">Login</button>
-    <button onclick="adminLogout()">Logout</button>
-  </div>
+  <input id="adminPw" type="password" placeholder="Admin-Passwort" />
+  <button onclick="adminUnlock()">Login</button>
 
   <div id="adminBody" style="display:none;">
-
     <details open>
-      <summary><b>Design & Trocknerlaufzeit</b></summary>
-      <div class="card" style="border-top-left-radius:0;border-top-right-radius:0;">
-        <label>Design</label>
-        <select id="uiTheme">
-          <option value="standard">Standard</option>
-          <option value="highcontrast">High-Contrast (Magenta)</option>
-        </select>
-        <button onclick="adminSaveTheme()">Speichern</button>
+      <summary><b>UI / Design (GLOBAL)</b></summary>
 
-        <hr style="border:none;border-top:1px solid #eee;margin:12px 0;">
+      <label>Layout</label>
+      <select id="uiLayout">
+        <option value="list">Liste (kompakt)</option>
+        <option value="cards">Karten (groß)</option>
+      </select>
 
-        <label>Trocknerlaufzeit (nur für neue Buchungen)</label>
-        <select id="dryerMinutes">
-          <option value="60">1 Stunde</option>
-          <option value="90">1,5 Stunden</option>
-          <option value="120">2 Stunden</option>
-        </select>
-        <button onclick="adminSaveDryerMinutes()">Speichern</button>
-      </div>
+      <label>Theme</label>
+      <select id="uiTheme">
+        <option value="standard">Standard</option>
+        <option value="highcontrast-magenta">High Contrast (Magenta)</option>
+      </select>
+
+      <button onclick="adminSaveUI()">Speichern (Passwort bestätigen)</button>
+      <div class="small muted">Wirkt global für alle User (nach Refresh / Cache-Reload).</div>
     </details>
 
     <details open>
       <summary><b>Stations-PIN</b></summary>
-      <div class="card" style="border-top-left-radius:0;border-top-right-radius:0;">
-        <label>Stations-PIN setzen/ändern</label>
-        <input id="adminStationPin" type="password" placeholder="Stations-PIN" inputmode="numeric" />
-        <button onclick="adminSetStationPin()">Speichern</button>
-      </div>
+      <label>Stations-PIN setzen/ändern</label>
+      <input id="adminStationPin" type="password" placeholder="Stations-PIN" inputmode="numeric" />
+      <button onclick="adminSetStationPin()">Stations-PIN speichern (Passwort bestätigen)</button>
     </details>
 
     <details open>
-      <summary><b>Tage-Fenster + Cleanup</b></summary>
-      <div class="card" style="border-top-left-radius:0;border-top-right-radius:0;">
-        <div class="row2">
-          <div>
-            <label>Vergangene Tage anzeigen</label>
-            <input id="daysPast" inputmode="numeric" placeholder="z. B. 1" />
-          </div>
-          <div>
-            <label>Folgende Tage anzeigen</label>
-            <input id="daysFuture" inputmode="numeric" placeholder="z. B. 6" />
-          </div>
+      <summary><b>Trocknerlaufzeit</b></summary>
+      <label>Dauer</label>
+      <select id="dryerMinutes">
+        <option value="60">1 Stunde</option>
+        <option value="90">1,5 Stunden</option>
+        <option value="120">2 Stunden</option>
+      </select>
+      <button onclick="adminSaveDryerDuration()">Speichern (Passwort bestätigen)</button>
+    </details>
+
+    <details>
+      <summary><b>Tage-Fenster</b></summary>
+      <div class="row2">
+        <div>
+          <label>Vergangene Tage (Anzeige)</label>
+          <input id="daysPast" inputmode="numeric" placeholder="z. B. 1" />
         </div>
-        <div class="small muted">Alles, was älter als “Vergangene Tage” ist, wird automatisch gelöscht (Buchungen + Log).</div>
-        <button onclick="adminSaveDays()">Speichern</button>
+        <div>
+          <label>Folgende Tage (Anzeige)</label>
+          <input id="daysFuture" inputmode="numeric" placeholder="z. B. 6" />
+        </div>
       </div>
+      <button onclick="adminSaveDays()">Speichern (Passwort bestätigen)</button>
     </details>
 
     <details open>
       <summary><b>Waschmaschinen Slotzeiten</b></summary>
-      <div class="card" style="border-top-left-radius:0;border-top-right-radius:0;">
-        <div class="small muted">Haken setzen → diese Zeiten werden als Slots verwendet.</div>
-        <div id="timeGrid" class="grid grid2" style="margin-top:10px;"></div>
-        <button onclick="adminSaveTimes()">Speichern</button>
-      </div>
+      <div class="small muted">Beispiel: 06:00, 08:00, … (durch Komma trennen)</div>
+      <input id="washerTimes" placeholder="06:00,08:00,10:00,12:00,14:00,..." />
+      <button onclick="adminSaveTimes()">Slotzeiten speichern (Passwort bestätigen)</button>
     </details>
 
     <details open>
       <summary><b>Maschinen freigeben / sperren / defekt</b></summary>
-      <div class="card" style="border-top-left-radius:0;border-top-right-radius:0;">
-        <div id="adminMachines" class="grid grid2"></div>
-      </div>
+      <div id="adminMachines" class="grid"></div>
     </details>
 
     <details>
       <summary><b>User dürfen defekt melden?</b></summary>
-      <div class="card" style="border-top-left-radius:0;border-top-right-radius:0;">
-        <label><input type="checkbox" id="udEnabled"> User-Defektmeldungen aktiv</label>
-        <div id="udGrid" class="grid grid2" style="margin-top:10px;"></div>
-        <button onclick="adminSaveUserDefect()">Speichern</button>
-      </div>
+      <label><input type="checkbox" id="udEnabled"> User-Defektmeldungen aktiv</label>
+      <div id="udGrid" class="grid"></div>
+      <button onclick="adminSaveUserDefect()">Speichern (Passwort bestätigen)</button>
     </details>
 
     <details>
-      <summary><b>Neu in der Version</b></summary>
-      <div class="card" style="border-top-left-radius:0;border-top-right-radius:0;">
-        <label>Text</label>
-        <textarea id="newsText" rows="4" placeholder="Neue Hinweise für User..."></textarea>
-        <label><input type="checkbox" id="newsEnabled"> Für User anzeigen</label>
-        <button onclick="adminSaveNews()">Speichern</button>
-      </div>
-    </details>
-
-    <details open>
-      <summary><b>Chat / Feedback (Admin)</b> <span id="adminChatBadge" class="pill" style="display:none;">NEU</span></summary>
-      <div class="card" style="border-top-left-radius:0;border-top-right-radius:0;">
-        <button class="smallbtn" onclick="adminLoadRooms()">Zimmerliste laden</button>
-        <div id="adminRooms" class="grid grid2" style="margin-top:10px;"></div>
-
-        <div id="adminChatBox" style="display:none; margin-top:10px;">
-          <h3 style="margin: 10px 0 6px;">Chat mit Zimmer <span id="adminRoomTitle"></span></h3>
-          <div class="row2">
-            <button onclick="adminLoadChat()">Chat aktualisieren</button>
-            <button onclick="adminSendChat()">Antwort senden</button>
-          </div>
-          <textarea id="adminChatText" rows="3" placeholder="Antwort..."></textarea>
-          <label class="small"><input type="checkbox" id="adminVisibleToUser" checked> sichtbar für User</label>
-          <div id="adminChatList" class="grid" style="margin-top:10px;"></div>
-        </div>
-      </div>
+      <summary><b>Neu in der Version (User-Anzeige)</b></summary>
+      <label>Text</label>
+      <textarea id="newsText" rows="4" placeholder="z. B. Neu: High-Contrast UI..."></textarea>
+      <label><input type="checkbox" id="newsEnabled"> Für User anzeigen</label>
+      <button onclick="adminSaveNews()">Speichern (Passwort bestätigen)</button>
     </details>
 
     <details>
-      <summary><b>Log (Buchungen / Storno / Defekt / Admin-Aktionen)</b></summary>
-      <div class="card" style="border-top-left-radius:0;border-top-right-radius:0;">
-        <button onclick="adminLoadLog()">Log laden</button>
-        <div id="adminLog" class="grid" style="margin-top:10px;"></div>
-      </div>
+      <summary><b>Feedback (anzeigen / beantworten / löschen)</b></summary>
+      <button onclick="adminLoadFeedback()">Feedback anzeigen (Passwort bestätigt)</button>
+      <div id="feedbackList" class="grid"></div>
     </details>
 
     <details>
       <summary><b>Admin-Passwort ändern</b></summary>
-      <div class="card" style="border-top-left-radius:0;border-top-right-radius:0;">
-        <label>Neues Admin-Passwort (mind. 8 Zeichen)</label>
-        <input id="newAdminPw" type="password" placeholder="Neues Passwort" autocomplete="new-password" />
-        <button onclick="adminChangePw()">Passwort ändern</button>
-      </div>
+      <label>Neues Admin-Passwort (mind. 8 Zeichen)</label>
+      <input id="newAdminPw" type="password" placeholder="Neues Passwort" />
+      <button onclick="adminChangePw()">Passwort ändern (Passwort bestätigen)</button>
     </details>
-
   </div>
 </div>
 
 <script>
-const API_BASE = "https://snowy-breeze-54f8.schluffi1220.workers.dev";
+// Wenn du GitHub Pages nutzt: hier Worker-URL eintragen:
+const API_BASE = ""; // z.B. "https://snowy-breeze-54f8.schluffi1220.workers.dev"
 
 const $ = (id) => document.getElementById(id);
-function apiUrl(path){ if(!path.startsWith("/")) path="/"+path; return API_BASE + path; }
 function setStatus(msg){ $("status").textContent = msg; }
 
 async function jget(path){
-  const r = await fetch(apiUrl(path), { cache:"no-store" });
+  const r = await fetch(API_BASE + path, { cache:"no-store" });
   return await r.json().catch(()=>({}));
 }
 async function jpost(path, body){
-  const r = await fetch(apiUrl(path), {
+  const r = await fetch(API_BASE + path, {
     method:"POST",
     headers:{ "Content-Type":"application/json" },
     body: JSON.stringify(body||{})
   });
   const data = await r.json().catch(()=>({}));
-  return { data, status: r.status };
-}
-function escapeHtml(s){
-  return String(s||"").replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[m]));
-}
-function fmtTime(ms){
-  return new Date(Number(ms)).toLocaleTimeString("de-DE",{hour:"2-digit",minute:"2-digit"});
-}
-function fmtDate(ms){
-  return new Date(Number(ms)).toLocaleDateString("de-DE");
-}
-function formatLogDetails(s){
-  s = String(s||"");
-  s = s.replace(/start=(\d+)/g, (_,ms)=>"start="+new Date(Number(ms)).toLocaleString("de-DE"));
-  s = s.replace(/end=(\d+)/g, (_,ms)=>"end="+new Date(Number(ms)).toLocaleString("de-DE"));
-  return escapeHtml(s);
+  return { r, data };
 }
 
 function needAccess_(){
@@ -336,126 +262,206 @@ function needAccess_(){
     stationPin: $("stationPin").value.trim()
   };
 }
-function adminPw_(){ return $("adminPw").value.trim(); }
 
-async function confirmAndRun(msg, fn){
-  if(!confirm(msg)) return null;
-  const r = await fn();
-  if(r?.ok) alert("✅ Gespeichert.");
-  else alert("❌ " + (r?.error || "Fehler"));
-  return r;
+function bookingConfirmText_(){
+  return "Buchung bestätigen?\n\n" +
+    "Wenn du deine gebuchte Zeit überschreitest, ist der nächste berechtigt, die Wäsche vorsichtig in den Korb zu räumen.";
 }
 
+// Global config from worker
+let cfg = { uiLayout:"list", uiTheme:"standard", dryerMinutes:120 };
 let lastStatus = null;
-let myBookingsCache = [];
-let userChatPopupShown = false;
-let adminSelectedRoom = null;
-let adminChatPopupShown = false;
 
-/* Theme apply */
-function applyTheme(theme){
-  document.body.classList.toggle("theme-highcontrast", theme === "highcontrast");
+// ---------- Load ----------
+async function refreshAll(){
+  await loadStatus();
+  await loadWasherSlots();
+  await loadMyBookings();
 }
 
-/* NEWS */
-function updateNewsUI(newsText){
-  const details = $("newsDetails");
-  const badge = $("newsBadge");
-  const box = $("newsTextBox");
+function applyTheme(){
+  document.body.classList.toggle("theme-hc", cfg.uiTheme === "highcontrast-magenta");
+}
 
-  if(!newsText || !String(newsText).trim()){
-    details.style.display = "none";
-    return;
+async function loadStatus(){
+  setStatus("Aktualisiere…");
+  const data = await jget("/api/status");
+  if(!data.ok){ setStatus("Fehler beim Laden."); return; }
+
+  cfg = data.config || cfg;
+  applyTheme();
+
+  // News
+  if(data.newsText && String(data.newsText).trim()){
+    $("news").style.display = "block";
+    $("news").textContent = data.newsText;
+  } else {
+    $("news").style.display = "none";
   }
-  details.style.display = "block";
-  box.textContent = newsText;
 
-  const hash = "n:" + newsText.length + ":" + newsText.slice(0,40);
-  const last = localStorage.getItem("lastNewsHash") || "";
-  const isNew = hash !== last;
+  lastStatus = data;
+  renderMachinesOverview(data);
 
-  badge.style.display = isNew ? "inline-block" : "none";
-  details.open = isNew;
-  if(isNew) localStorage.setItem("lastNewsHash", hash);
+  setStatus("Bereit.");
 }
 
-/* Maschinenübersicht (Variante B) */
-function renderMachinesOverview(status){
+function renderMachinesOverview(data){
+  const layout = (cfg.uiLayout === "cards") ? "cards" : "list";
+  if(layout === "cards") renderMachinesOverviewCards(data);
+  else renderMachinesOverviewList(data);
+}
+
+function machineTitle_(m){
+  return (m.type==="washer" ? "Waschmaschine" : "Trockner") + " " + m.machine;
+}
+
+function renderMachinesOverviewList(data){
   const box = $("machinesOverview");
+  box.className = "mlist";
   box.innerHTML = "";
 
-  const machines = status.machines || [];
-  const bookings = status.bookings || [];
+  const machines = (data.machines || []).slice();
+  const bookings = data.bookings || [];
+
   const active = new Map();
-  for(const b of bookings) active.set(`${b.type}:${b.machine}`, b);
+  bookings.forEach(b=> active.set(`${b.type}:${b.machine}`, b));
 
   machines.sort((a,b)=>{
-    if(a.type !== b.type) return a.type.localeCompare(b.type);
-    return Number(a.machine) - Number(b.machine);
+    if(a.type!==b.type) return a.type.localeCompare(b.type);
+    return Number(a.machine)-Number(b.machine);
   });
 
   for(const m of machines){
-    const key = `${m.type}:${m.machine}`;
-    const b = active.get(key);
+    const b = active.get(`${m.type}:${m.machine}`);
 
-    let statusClass = "free";
-    let statusText = "Frei";
+    const blocked = (Number(m.enabled)===0);
+    const defect = (Number(m.defect)===1);
+    const busy = !!b;
 
-    const enabled = Number(m.enabled) === 1;
-    const defect = Number(m.defect) === 1;
+    let dotClass = "";
+    let dotColor = "#2e7d32"; // green
+    let meta = "Frei";
 
     if(defect){
-      statusClass = "bad";
-      statusText = "Defekt";
-    } else if(!enabled){
-      statusClass = "bad";
-      statusText = "Gesperrt";
-    } else if(b){
-      statusClass = "busy";
-      statusText = `Belegt bis ${fmtTime(b.end)} (Zimmer ${escapeHtml(b.room||"?")})`;
+      dotClass = "bad";
+      dotColor = "#c62828"; // red (standard)
+      meta = "Defekt";
+    } else if(blocked){
+      dotClass = "bad";
+      dotColor = "#c62828";
+      meta = "Gesperrt";
+    } else if(busy){
+      dotColor = "#1565c0"; // blue
+      meta = `Belegt bis ${fmtTime(b.end)} (Zimmer ${escapeHtml(b.room||"?")})`;
     }
 
     const row = document.createElement("div");
-    row.className = "machine-row";
-    row.innerHTML = `
-      <div class="machine-status ${statusClass}"></div>
-      <div>
-        <div class="machine-title">${m.type === "washer" ? "Waschmaschine" : "Trockner"} ${m.machine}</div>
-        <div class="machine-sub">${statusText}</div>
-      </div>
-      <div class="machine-actions"></div>
-    `;
+    row.className = "mrow";
 
-    const actions = row.querySelector(".machine-actions");
+    const left = document.createElement("div");
+    left.className = "mleft";
 
-    // Aktionen nur für Trockner
-    if(m.type === "dryer" && enabled && !defect){
-      if(!b){
+    const dot = document.createElement("div");
+    dot.className = `mdot ${dotClass}`;
+    dot.style.background = dotColor;
+
+    const text = document.createElement("div");
+    text.innerHTML = `<div class="mname">${machineTitle_(m)}</div><div class="mmeta">${meta}</div>`;
+
+    left.appendChild(dot);
+    left.appendChild(text);
+    row.appendChild(left);
+
+    // Right action: dryer quick action
+    const right = document.createElement("div");
+
+    if(m.type==="dryer" && !blocked && !defect){
+      if(!busy){
         const btn = document.createElement("button");
+        btn.className = "mbtn";
         btn.textContent = "Buchen";
-        btn.onclick = () => bookDryer(Number(m.machine));
-        actions.appendChild(btn);
+        btn.onclick = ()=>bookDryer(m.machine);
+        right.appendChild(btn);
       } else {
-        const mine = myBookingsCache.find(x => x.type==="dryer" && Number(x.machine)===Number(m.machine));
-        if(mine){
-          const btn = document.createElement("button");
-          btn.textContent = "FERTIG";
-          btn.onclick = () => finishDryer(mine.id);
-          actions.appendChild(btn);
-        }
+        // Only show FERTIG if it's your room/pin booking (we won't know here),
+        // so button stays disabled; real finish is in "Meine Buchungen".
+        const btn = document.createElement("button");
+        btn.className = "mbtn";
+        btn.textContent = "Belegt";
+        btn.disabled = true;
+        right.appendChild(btn);
       }
     }
 
+    row.appendChild(right);
     box.appendChild(row);
   }
 }
 
-/* Slots */
+function renderMachinesOverviewCards(data){
+  const box = $("machinesOverview");
+  box.className = "mcards";
+  box.innerHTML = "";
+
+  const machines = (data.machines || []).slice();
+  const bookings = data.bookings || [];
+
+  const active = new Map();
+  bookings.forEach(b=> active.set(`${b.type}:${b.machine}`, b));
+
+  machines.sort((a,b)=>{
+    if(a.type!==b.type) return a.type.localeCompare(b.type);
+    return Number(a.machine)-Number(b.machine);
+  });
+
+  for(const m of machines){
+    const b = active.get(`${m.type}:${m.machine}`);
+
+    const blocked = (Number(m.enabled)===0);
+    const defect = (Number(m.defect)===1);
+
+    let state = "free";
+    let label = "Frei";
+    let badge = "Frei";
+
+    if(defect){ state="bad"; badge="Defekt"; label="Defekt"; }
+    else if(blocked){ state="bad"; badge="Gesperrt"; label="Gesperrt"; }
+    else if(b){
+      state="busy"; badge="Belegt";
+      label = `Belegt bis ${fmtTime(b.end)} (Zimmer ${escapeHtml(b.room||"?")})`;
+    }
+
+    const card = document.createElement("div");
+    card.className = `mcard ${state==="free"?"free":state==="busy"?"busy":"blocked"}`;
+
+    card.innerHTML = `
+      <div class="top">
+        <div>
+          <div style="font-weight:700;">${machineTitle_(m)}</div>
+          <div class="small">${label}</div>
+        </div>
+        <span class="mbadge ${state==="free"?"free":state==="busy"?"busy":"bad"}">${badge}</span>
+      </div>
+    `;
+
+    // action for dryer
+    if(m.type==="dryer" && !blocked && !defect){
+      const btn = document.createElement("button");
+      btn.textContent = b ? "Belegt" : "Buchen";
+      btn.disabled = !!b;
+      btn.onclick = ()=>bookDryer(m.machine);
+      card.appendChild(btn);
+    }
+
+    box.appendChild(card);
+  }
+}
+
 async function loadWasherSlots(){
+  const { stationPin } = needAccess_();
   const sel = $("washerSlotSelect");
   sel.innerHTML = `<option value="">Bitte auswählen</option>`;
 
-  const { stationPin } = needAccess_();
   if(!stationPin){
     sel.innerHTML = `<option value="">Bitte Stations-PIN eingeben</option>`;
     return;
@@ -473,30 +479,34 @@ async function loadWasherSlots(){
     return;
   }
 
+  slots.sort((a,b)=> (a.start-b.start) || (a.machine-b.machine));
+
   for(const s of slots){
     const opt = document.createElement("option");
-    opt.value = JSON.stringify({ machine:s.machine, start:s.start, end:s.end, bookable:s.bookable });
-    opt.textContent = s.bookable ? s.label : `${s.label} (${s.reason})`;
-    if(!s.bookable) opt.disabled = true;
+    opt.value = JSON.stringify({ machine:s.machine, start:s.start, end:s.end });
+    opt.textContent = s.label;
+
+    // Show busy/blocked/defect as disabled
+    opt.disabled = !s.bookable;
     sel.appendChild(opt);
   }
 }
 
-function bookingConfirmText_(){
-  return "Buchung bestätigen?\n\nWenn du deine gebuchte Zeit überschreitest, ist der nächste berechtigt, die Wäsche vorsichtig in den Korb zu räumen und auf oder neben die Maschine zu stellen.";
-}
-
 async function bookWasher(){
   const { room, pin, stationPin } = needAccess_();
-  if(!room || !pin || !stationPin) return alert("Bitte Zimmernummer, PIN und Stations-PIN eingeben.");
-
+  if(!room || !pin || !stationPin){
+    alert("Bitte Zimmernummer, PIN und Stations-PIN eingeben.");
+    return;
+  }
   const val = $("washerSlotSelect").value;
-  if(!val) return alert("Bitte Slot auswählen.");
-  const slot = JSON.parse(val);
-  if(!slot.bookable) return alert("Dieser Slot ist nicht buchbar.");
+  if(!val){
+    alert("Bitte einen Slot auswählen.");
+    return;
+  }
 
   if(!confirm(bookingConfirmText_())) return;
 
+  const slot = JSON.parse(val);
   const { data } = await jpost("/api/washer/book", {
     room, pin, stationPin,
     machine: slot.machine,
@@ -504,69 +514,72 @@ async function bookWasher(){
     end: slot.end
   });
 
-  if(data.ok) alert("Buchung erfolgreich.");
-  else alert(data.error || "Fehler beim Buchen.");
-  await refreshAll();
+  if(data.ok){
+    alert("Buchung erfolgreich.");
+    await refreshAll();
+  }else{
+    alert(data.error || "Fehler beim Buchen.");
+    await refreshAll();
+  }
 }
 
 async function bookDryer(machine){
   const { room, pin, stationPin } = needAccess_();
-  if(!room || !pin || !stationPin) return alert("Bitte Zimmernummer, PIN und Stations-PIN eingeben.");
-  if(!confirm("Trockner buchen?")) return;
+  if(!room || !pin || !stationPin){
+    alert("Bitte Zimmernummer, PIN und Stations-PIN eingeben.");
+    return;
+  }
+  const ok = confirm(`Trockner buchen?\n\nDauer: ${cfg.dryerMinutes || 120} Minuten.`);
+  if(!ok) return;
 
   const { data } = await jpost("/api/dryer/book", { room, pin, stationPin, machine });
-  if(data.ok) alert("Trockner gebucht.");
-  else alert(data.error || "Fehler.");
-  await refreshAll();
+  if(data.ok){
+    alert("Trockner gebucht.");
+    await refreshAll();
+  }else{
+    alert(data.error || "Fehler.");
+    await refreshAll();
+  }
 }
 
-/* My bookings */
 async function loadMyBookings(){
+  const { room, pin } = needAccess_();
   const box = $("myBookings");
   box.innerHTML = "";
 
-  const { room, pin } = needAccess_();
   if(!room || !pin){
-    myBookingsCache = [];
     box.innerHTML = `<div class="card muted">Bitte Zimmernummer und PIN eingeben.</div>`;
     return;
   }
 
   const { data } = await jpost("/api/my-bookings", { room, pin });
   if(!data.ok){
-    myBookingsCache = [];
-    box.innerHTML = `<div class="card bad">${data.error || "Fehler"}</div>`;
+    box.innerHTML = `<div class="card blocked">${escapeHtml(data.error || "Fehler")}</div>`;
     return;
   }
 
   const list = data.bookings || [];
-  myBookingsCache = list;
-
   if(list.length===0){
     box.innerHTML = `<div class="card muted">Keine Buchungen gefunden.</div>`;
     return;
   }
 
-  const defectMap = new Map();
-  if(lastStatus?.machines){
-    for(const m of lastStatus.machines){
-      defectMap.set(`${m.type}:${m.machine}`, Number(m.defect)===1);
-    }
-  }
+  list.sort((a,b)=>a.start-b.start);
 
   for(const b of list){
-    const isDefect = defectMap.get(`${b.type}:${b.machine}`) === true;
+    const isWasher = b.type==="washer";
+    const title = isWasher ? `Waschmaschine ${b.machine}` : `Trockner ${b.machine}`;
+    const start = new Date(b.start);
+    const end = new Date(b.end);
+    const line = isWasher
+      ? `${start.toLocaleDateString("de-DE")} ${start.toLocaleTimeString("de-DE",{hour:"2-digit",minute:"2-digit"})} – ${end.toLocaleTimeString("de-DE",{hour:"2-digit",minute:"2-digit"})}`
+      : `bis ${end.toLocaleTimeString("de-DE",{hour:"2-digit",minute:"2-digit"})}`;
+
     const card = document.createElement("div");
-    card.className = `card ${isDefect ? "bad" : "busy"}`;
+    card.className = "card";
+    card.innerHTML = `<b>${title}</b><br><div class="small">${line}</div>`;
 
-    const title = (b.type==="washer" ? "Waschmaschine " : "Trockner ") + b.machine;
-    const line = (b.type==="washer")
-      ? `${fmtDate(b.start)} ${fmtTime(b.start)} – ${fmtTime(b.end)}`
-      : `bis ${fmtTime(b.end)}`;
-
-    card.innerHTML = `<b>${title}</b>${isDefect ? ' <span class="pill red">Defekt</span>' : ""}<br><div class="small">${line}</div>`;
-
-    if(b.type==="washer"){
+    if(isWasher){
       const btn = document.createElement("button");
       btn.textContent = b.canCancel ? "Stornieren" : "Storno nicht möglich";
       btn.disabled = !b.canCancel;
@@ -590,9 +603,13 @@ async function cancelBooking(id){
   if(!confirm("Buchung wirklich stornieren?")) return;
 
   const { data } = await jpost("/api/cancel", { id, pin });
-  if(data.ok) alert("Storniert.");
-  else alert(data.error || "Fehler.");
-  await refreshAll();
+  if(data.ok){
+    alert("Storniert.");
+    await refreshAll();
+  }else{
+    alert(data.error || "Fehler.");
+    await refreshAll();
+  }
 }
 
 async function finishDryer(id){
@@ -601,255 +618,217 @@ async function finishDryer(id){
   if(!confirm("Trockner als FERTIG markieren?")) return;
 
   const { data } = await jpost("/api/dryer/finish", { id, pin });
-  if(data.ok) alert("Erledigt.");
-  else alert(data.error || "Fehler.");
-  await refreshAll();
+  if(data.ok){
+    alert("Erledigt.");
+    await refreshAll();
+  }else{
+    alert(data.error || "Fehler.");
+    await refreshAll();
+  }
 }
 
-/* Defect */
+async function sendFeedback(){
+  const { room, pin } = needAccess_();
+  const message = $("fb").value.trim();
+  if(!room || !message){
+    alert("Bitte Zimmernummer und Feedback eingeben.");
+    return;
+  }
+  const { data } = await jpost("/api/feedback", { room, pin, message });
+  if(data.ok){
+    alert("Danke! Feedback wurde gesendet.");
+    $("fb").value = "";
+  }else{
+    alert(data.error || "Fehler.");
+  }
+}
+
 async function userSetDefect(action){
   const { room, stationPin } = needAccess_();
   const type = $("defType").value;
   const machine = Number($("defMachine").value);
 
-  if(!stationPin) return alert("Stations-PIN fehlt.");
+  if(!stationPin){
+    alert("Stations-PIN fehlt.");
+    return;
+  }
+
   const ok = confirm(action==="defect"
     ? "Gerät wirklich als DEFekt melden?\n\nBitte zusätzlich der Rezeption Bescheid geben."
     : "Gerät wirklich FREIGEBEN?");
   if(!ok) return;
 
   const { data } = await jpost("/api/user/set-defect", { stationPin, room, type, machine, action });
-  if(data.ok) alert("Gespeichert.");
-  else alert(data.error || "Fehler.");
-  await refreshAll();
-}
-
-/* Chat user */
-async function checkUserChatUnread(){
-  const { room, pin } = needAccess_();
-  if(!room || !pin) return;
-
-  const { data } = await jpost("/api/chat/user/unread-count", { room, pin });
-  if(!data.ok) return;
-
-  const c = Number(data.count || 0);
-  if(c > 0){
-    if(!userChatPopupShown){
-      userChatPopupShown = true;
-      alert("📩 Neue Nachricht vom Admin im Chat.");
-    }
-    await loadUserChat();
+  if(data.ok){
+    alert("Gespeichert.");
+    await refreshAll();
+  }else{
+    alert(data.error || "Fehler.");
   }
 }
 
-async function loadUserChat(){
-  const { room, pin } = needAccess_();
-  if(!room || !pin) return alert("Bitte Zimmernummer + PIN eingeben.");
-  const { data } = await jpost("/api/chat/user/list", { room, pin });
-  if(!data.ok) return alert(data.error || "Fehler");
-
-  const box = $("chatList");
-  box.innerHTML = "";
-  for(const m of data.messages || []){
-    const c = document.createElement("div");
-    const isAdmin = m.sender === "admin";
-    c.className = `card ${isAdmin ? "busy" : "free"}`;
-    c.innerHTML = `<b>${isAdmin ? "Admin" : "Du"}</b> <span class="small muted">${new Date(m.createdAt).toLocaleString("de-DE")}</span><br>${escapeHtml(m.body)}`;
-    box.appendChild(c);
-  }
-}
-
-async function sendUserChat(){
-  const { room, pin, stationPin } = needAccess_();
-  const text = $("chatText").value.trim();
-  if(!room || !pin) return alert("Zimmernummer + PIN fehlen.");
-  if(!stationPin) return alert("Stations-PIN fehlt (für Chat).");
-  if(!text) return alert("Text fehlt.");
-
-  const { data } = await jpost("/api/chat/user/send", { room, pin, stationPin, text });
-  if(!data.ok) return alert(data.error || "Fehler");
-
-  $("chatText").value = "";
-  await loadUserChat();
-}
-
-/* Admin show/hide */
+// ---------- Admin ----------
 function toggleAdmin(){
   const p = $("adminPanel");
   p.style.display = (p.style.display==="none" ? "block" : "none");
 }
-function adminLogout(){
-  $("adminPw").value = "";
-  $("adminBody").style.display = "none";
-  $("adminChatBox").style.display = "none";
-  alert("Admin ausgeloggt.");
-}
 
-/* Admin unlock + load state */
+$("adminPw").addEventListener("keydown", (e)=>{
+  if(e.key === "Enter") adminUnlock();
+});
+
 async function adminUnlock(){
-  const pw = adminPw_();
-  if(!pw) return alert("Admin-Passwort eingeben.");
+  let pw = $("adminPw").value.trim();
+  if(!pw){ alert("Admin-Passwort eingeben."); return; }
 
   const st = await jget("/api/admin/state");
-  if(!st.ok) return alert(st.error || "Fehler");
+  if(!st.ok){ alert("Admin-State konnte nicht geladen werden."); return; }
 
   if(!st.hasAdmin){
     const init = prompt("Admin-Passwort ist noch nicht gesetzt.\nInitiales Passwort (mind. 8 Zeichen) setzen:");
-    if(!init || init.length < 8) return alert("Zu kurz.");
+    if(!init || init.length < 8){ alert("Zu kurz."); return; }
     const { data } = await jpost("/api/admin/set-initial-password", { newPassword: init });
-    if(!data.ok) return alert(data.error || "Fehler");
+    if(!data.ok){ alert(data.error || "Fehler"); return; }
     $("adminPw").value = init;
+    pw = init;
   }
 
   $("adminBody").style.display = "block";
 
+  // Fill state
   const st2 = await jget("/api/admin/state");
-
-  // Theme + Dryer minutes in UI
-  $("uiTheme").value = st2.uiTheme || "standard";
-  $("dryerMinutes").value = String(st2.dryerMinutes || 120);
-
   $("daysPast").value = st2.daysPast ?? 1;
   $("daysFuture").value = st2.daysFuture ?? 6;
+  $("washerTimes").value = (st2.washerTimes || []).join(",");
+  $("dryerMinutes").value = String(st2.dryerMinutes || 120);
 
-  renderTimeGrid(st2.washerTimes || []);
+  $("uiLayout").value = st2.uiLayout || "list";
+  $("uiTheme").value = st2.uiTheme || "standard";
+
+  $("adminStationPin").value = "";
+
+  await renderMachines();
   renderUserDefect(st2.userDefectEnabled, st2.userDefectAllowed);
 
   $("newsText").value = st2.newsText || "";
   $("newsEnabled").checked = !!st2.newsEnabled;
 
-  await renderAdminMachines();
-  await checkAdminChatUnread(true);
-
   alert("Admin freigeschaltet.");
 }
 
-/* Admin: save theme */
-async function adminSaveTheme(){
+function adminPw_(){ return $("adminPw").value.trim(); }
+
+async function adminSaveUI(){
   const pw = adminPw_();
   if(!pw) return alert("Admin-Passwort fehlt.");
+
+  if(!confirm("Sicher speichern?")) return;
+
+  const uiLayout = $("uiLayout").value;
   const uiTheme = $("uiTheme").value;
 
-  await confirmAndRun("Design wirklich speichern?", async ()=>{
-    const { data } = await jpost("/api/admin/set-ui-theme", { adminPassword: pw, uiTheme });
-    if(data.ok) await refreshAll();
-    return data;
-  });
-}
-
-/* Admin: save dryer minutes */
-async function adminSaveDryerMinutes(){
-  const pw = adminPw_();
-  if(!pw) return alert("Admin-Passwort fehlt.");
-  const dryerMinutes = Number($("dryerMinutes").value);
-
-  await confirmAndRun("Trocknerlaufzeit speichern? (gilt nur für neue Buchungen)", async ()=>{
-    const { data } = await jpost("/api/admin/set-dryer-duration", { adminPassword: pw, dryerMinutes });
-    return data;
-  });
-}
-
-function renderTimeGrid(selectedTimes){
-  const sel = new Set(selectedTimes);
-  const grid = $("timeGrid");
-  grid.innerHTML = "";
-  for(let h=1; h<=23; h++){
-    const t = String(h).padStart(2,"0")+":00";
-    const d = document.createElement("div");
-    d.className = "card";
-    d.innerHTML = `<label><input type="checkbox" id="t_${t.replace(":","")}" ${sel.has(t)?"checked":""}> ${t}</label>`;
-    grid.appendChild(d);
-  }
-}
-function collectTimes_(){
-  const times = [];
-  for(let h=1; h<=23; h++){
-    const t = String(h).padStart(2,"0")+":00";
-    const id = `t_${t.replace(":","")}`;
-    const el = document.getElementById(id);
-    if(el && el.checked) times.push(t);
-  }
-  return times;
+  const { data } = await jpost("/api/admin/set-ui", { adminPassword: pw, uiLayout, uiTheme });
+  if(data.ok){
+    alert("Gespeichert.");
+    await refreshAll();
+  } else alert(data.error || "Fehler.");
 }
 
 async function adminSetStationPin(){
   const pw = adminPw_();
-  const sp = $("adminStationPin").value.trim();
   if(!pw) return alert("Admin-Passwort fehlt.");
-  if(!sp) return alert("Stations-PIN fehlt.");
+  const sp = $("adminStationPin").value.trim();
+  if(!sp) return alert("Stations-PIN eingeben.");
 
-  await confirmAndRun("Stations-PIN wirklich speichern?", async ()=>{
-    const { data } = await jpost("/api/admin/set-station-pin", { adminPassword: pw, stationPin: sp });
-    return data;
-  });
+  const { data } = await jpost("/api/admin/set-station-pin", { adminPassword: pw, stationPin: sp });
+  if(data.ok) alert("Stations-PIN gespeichert.");
+  else alert(data.error || "Fehler.");
+}
+
+async function adminSaveDryerDuration(){
+  const pw = adminPw_();
+  if(!pw) return alert("Admin-Passwort fehlt.");
+
+  if(!confirm("Sicher speichern?")) return;
+
+  const dryerMinutes = Number($("dryerMinutes").value);
+  const { data } = await jpost("/api/admin/set-dryer-duration", { adminPassword: pw, dryerMinutes });
+  if(data.ok){
+    alert("Gespeichert.");
+    await refreshAll();
+  } else alert(data.error || "Fehler.");
+}
+
+async function adminSaveTimes(){
+  const pw = adminPw_();
+  if(!pw) return alert("Admin-Passwort fehlt.");
+
+  if(!confirm("Sicher speichern?")) return;
+
+  const raw = $("washerTimes").value;
+  const times = raw.split(",").map(s=>s.trim()).filter(Boolean);
+  const { data } = await jpost("/api/admin/set-washer-times", { adminPassword: pw, times });
+  if(data.ok){
+    alert("Slotzeiten gespeichert.");
+    await refreshAll();
+  } else alert(data.error || "Fehler.");
 }
 
 async function adminSaveDays(){
   const pw = adminPw_();
   if(!pw) return alert("Admin-Passwort fehlt.");
 
+  if(!confirm("Sicher speichern?")) return;
+
   const daysPast = Number($("daysPast").value);
   const daysFuture = Number($("daysFuture").value);
 
-  await confirmAndRun("Tage-Fenster wirklich speichern?", async ()=>{
-    const { data } = await jpost("/api/admin/set-days-window", { adminPassword: pw, daysPast, daysFuture });
-    if(data.ok) await refreshAll();
-    return data;
-  });
+  const { data } = await jpost("/api/admin/set-days-window", { adminPassword: pw, daysPast, daysFuture });
+  if(data.ok){
+    alert("Gespeichert.");
+    await refreshAll();
+  } else alert(data.error || "Fehler.");
 }
 
-async function adminSaveTimes(){
-  const pw = adminPw_();
-  if(!pw) return alert("Admin-Passwort fehlt.");
-  const times = collectTimes_();
-  if(times.length < 1) return alert("Mindestens eine Zeit wählen.");
-
-  await confirmAndRun("Slotzeiten wirklich speichern?", async ()=>{
-    const { data } = await jpost("/api/admin/set-washer-times", { adminPassword: pw, times });
-    if(data.ok) await refreshAll();
-    return data;
-  });
-}
-
-async function renderAdminMachines(){
+async function renderMachines(){
   const s = await jget("/api/status");
-  if(!s.ok) return;
-
   const machines = s.machines || [];
   const box = $("adminMachines");
   box.innerHTML = "";
 
-  for(const m of machines){
+  machines.forEach(m=>{
     const d = document.createElement("div");
     d.className = "card";
-
-    const name = (m.type==="washer" ? "Waschmaschine " : "Trockner ") + m.machine;
+    const name = machineTitle_(m);
     d.innerHTML = `
       <b>${name}</b><br>
-      <label class="small"><input type="checkbox" id="en_${m.type}_${m.machine}" ${Number(m.enabled)===1?"checked":""}> Freigegeben</label>
-      <label class="small"><input type="checkbox" id="df_${m.type}_${m.machine}" ${Number(m.defect)===1?"checked":""}> Defekt</label>
+      <label class="small"><input type="checkbox" id="en_${m.type}_${m.machine}" ${m.enabled? "checked":""}> Freigegeben</label>
+      <label class="small"><input type="checkbox" id="df_${m.type}_${m.machine}" ${m.defect? "checked":""}> Defekt</label>
       <div class="small">Defekt gemeldet von: ${escapeHtml(m.defectBy || "-")}</div>
-      <button onclick="adminSaveMachine('${m.type}',${m.machine})">Speichern</button>
+      <button onclick="adminSaveMachine('${m.type}',${m.machine})">Speichern (Passwort bestätigen)</button>
     `;
     box.appendChild(d);
-  }
+  });
 }
 
 async function adminSaveMachine(type, machine){
   const pw = adminPw_();
   if(!pw) return alert("Admin-Passwort fehlt.");
 
+  if(!confirm("Sicher speichern?")) return;
+
   const en = document.getElementById(`en_${type}_${machine}`).checked;
   const df = document.getElementById(`df_${type}_${machine}`).checked;
 
-  await confirmAndRun("Einstellungen wirklich speichern?", async ()=>{
-    const { data } = await jpost("/api/admin/set-machine", { adminPassword: pw, type, machine, enabled: en, defect: df });
-    if(data.ok){
-      await refreshAll();
-      await renderAdminMachines();
-    }
-    return data;
-  });
+  const { data } = await jpost("/api/admin/set-machine", { adminPassword: pw, type, machine, enabled: en, defect: df });
+  if(data.ok){
+    alert("Gespeichert.");
+    await refreshAll();
+    await renderMachines();
+  } else {
+    alert(data.error || "Fehler.");
+    await renderMachines();
+  }
 }
 
 function renderUserDefect(enabled, allowed){
@@ -857,13 +836,14 @@ function renderUserDefect(enabled, allowed){
   const grid = $("udGrid");
   grid.innerHTML = "";
 
-  for(const t of ["washer","dryer"]){
+  const types = ["washer","dryer"];
+  for(const t of types){
     for(let m=1;m<=4;m++){
-      const val = (allowed && allowed[t] && allowed[t][m]===true);
       const d = document.createElement("div");
       d.className = "card";
-      const label = (t==="washer" ? "Waschmaschine " : "Trockner ") + m;
-      d.innerHTML = `<label><input type="checkbox" id="ud_${t}_${m}" ${val?"checked":""}> ${label}</label>`;
+      const key = (t==="washer" ? "Waschmaschine" : "Trockner") + " " + m;
+      const val = (allowed && allowed[t] && (allowed[t][m]===true || allowed[t][String(m)]===true));
+      d.innerHTML = `<label><input type="checkbox" id="ud_${t}_${m}" ${val?"checked":""}> ${key}</label>`;
       grid.appendChild(d);
     }
   }
@@ -873,32 +853,87 @@ async function adminSaveUserDefect(){
   const pw = adminPw_();
   if(!pw) return alert("Admin-Passwort fehlt.");
 
+  if(!confirm("Sicher speichern?")) return;
+
   const enabled = $("udEnabled").checked;
   const allowed = { washer:{}, dryer:{} };
-  for(const t of ["washer","dryer"]){
+  ["washer","dryer"].forEach(t=>{
     for(let m=1;m<=4;m++){
-      allowed[t][m] = !!document.getElementById(`ud_${t}_${m}`).checked;
+      const el = document.getElementById(`ud_${t}_${m}`);
+      allowed[t][m] = !!(el && el.checked);
     }
-  }
-
-  await confirmAndRun("User-Defektmeldung speichern?", async ()=>{
-    const { data } = await jpost("/api/admin/set-user-defect", { adminPassword: pw, enabled, allowed });
-    return data;
   });
+
+  const { data } = await jpost("/api/admin/set-user-defect", { adminPassword: pw, enabled, allowed });
+  if(data.ok) alert("Gespeichert.");
+  else alert(data.error || "Fehler.");
 }
 
 async function adminSaveNews(){
   const pw = adminPw_();
   if(!pw) return alert("Admin-Passwort fehlt.");
 
+  if(!confirm("Sicher speichern?")) return;
+
   const text = $("newsText").value;
   const enabled = $("newsEnabled").checked;
 
-  await confirmAndRun("News speichern?", async ()=>{
-    const { data } = await jpost("/api/admin/news/set", { adminPassword: pw, text, enabled });
-    if(data.ok) await refreshAll();
-    return data;
+  const { data } = await jpost("/api/admin/news/set", { adminPassword: pw, text, enabled });
+  if(data.ok){
+    alert("Gespeichert.");
+    await refreshAll();
+  } else alert(data.error || "Fehler.");
+}
+
+async function adminLoadFeedback(){
+  const pw = adminPw_();
+  if(!pw) return alert("Admin-Passwort fehlt.");
+
+  const { data } = await jpost("/api/admin/feedback/list", { adminPassword: pw });
+  if(!data.ok) return alert(data.error || "Fehler.");
+
+  const box = $("feedbackList");
+  box.innerHTML = "";
+
+  data.rows.forEach(r=>{
+    const dt = new Date(r.createdAt).toLocaleString("de-DE");
+    const el = document.createElement("div");
+    el.className = "card";
+    el.innerHTML = `
+      <b>${dt}</b> | Zimmer ${escapeHtml(r.room)}<br>
+      <div>${escapeHtml(r.message)}</div>
+      <div class="small">Antwort: ${r.adminReply ? escapeHtml(r.adminReply) : "-"}</div>
+      <textarea id="rep_${r.id}" rows="2" placeholder="Antwort schreiben..."></textarea>
+      <button onclick="adminReply('${r.id}')">Antwort speichern</button>
+      <button onclick="adminDeleteFb('${r.id}')">Löschen</button>
+    `;
+    box.appendChild(el);
   });
+}
+
+async function adminReply(id){
+  const pw = adminPw_();
+  const reply = document.getElementById(`rep_${id}`).value.trim();
+  if(!reply) return alert("Antwort eingeben.");
+
+  if(!confirm("Antwort speichern?")) return;
+
+  const { data } = await jpost("/api/admin/feedback/reply", { adminPassword: pw, id, reply });
+  if(data.ok){
+    alert("Antwort gespeichert.");
+    adminLoadFeedback();
+  } else alert(data.error || "Fehler.");
+}
+
+async function adminDeleteFb(id){
+  const pw = adminPw_();
+  if(!confirm("Feedback wirklich löschen?")) return;
+
+  const { data } = await jpost("/api/admin/feedback/delete", { adminPassword: pw, id });
+  if(data.ok){
+    alert("Gelöscht.");
+    adminLoadFeedback();
+  } else alert(data.error || "Fehler.");
 }
 
 async function adminChangePw(){
@@ -907,189 +942,23 @@ async function adminChangePw(){
   if(!pw) return alert("Admin-Passwort fehlt.");
   if(!nw || nw.length < 8) return alert("Neues Passwort mind. 8 Zeichen.");
 
-  await confirmAndRun("Admin-Passwort wirklich ändern?", async ()=>{
-    const { data } = await jpost("/api/admin/change-password", { adminPassword: pw, newPassword: nw });
-    if(data.ok){
-      $("adminPw").value = nw;
-      $("newAdminPw").value = "";
-    }
-    return data;
-  });
+  if(!confirm("Passwort wirklich ändern?")) return;
+
+  const { data } = await jpost("/api/admin/change-password", { adminPassword: pw, newPassword: nw });
+  if(data.ok){
+    alert("Admin-Passwort geändert.");
+    $("adminPw").value = nw;
+    $("newAdminPw").value = "";
+  } else alert(data.error || "Fehler.");
 }
 
-/* Admin chat (unchanged) */
-async function checkAdminChatUnread(showPopup){
-  const pw = adminPw_();
-  if(!pw) return;
-
-  const { data } = await jpost("/api/chat/admin/unread-count", { adminPassword: pw });
-  if(data.ok && Number(data.count)>0){
-    $("adminChatBadge").style.display = "inline-block";
-    if(showPopup && !adminChatPopupShown){
-      adminChatPopupShown = true;
-      alert("📩 Neue Nachricht(en) von Usern im Chat.");
-    }
-  } else {
-    $("adminChatBadge").style.display = "none";
-  }
+function escapeHtml(s){
+  return String(s||"").replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[m]));
+}
+function fmtTime(ms){
+  return new Date(ms).toLocaleTimeString("de-DE",{hour:"2-digit",minute:"2-digit"});
 }
 
-async function adminLoadRooms(){
-  const pw = adminPw_();
-  if(!pw) return alert("Admin-Passwort fehlt.");
-
-  await checkAdminChatUnread(false);
-
-  const { data } = await jpost("/api/chat/admin/rooms", { adminPassword: pw });
-  if(!data.ok) return alert(data.error || "Fehler");
-
-  const box = $("adminRooms");
-  box.innerHTML = "";
-
-  for(const r of data.rooms || []){
-    const d = document.createElement("div");
-    d.className = "card";
-    const unread = Number(r.unreadFromUser || 0);
-    d.innerHTML = `
-      <b>Zimmer ${escapeHtml(r.room)}</b>
-      ${unread>0 ? `<span class="pill red">${unread} neu</span>` : `<span class="pill">0 neu</span>`}
-      <div class="small muted">Letzte Nachricht: ${new Date(Number(r.lastAt||0)).toLocaleString("de-DE")}</div>
-      <button onclick="adminSelectRoom('${escapeHtml(r.room)}')">Öffnen</button>
-    `;
-    box.appendChild(d);
-  }
-}
-
-function adminSelectRoom(room){
-  adminSelectedRoom = room;
-  $("adminRoomTitle").textContent = room;
-  $("adminChatBox").style.display = "block";
-  adminLoadChat();
-}
-
-async function adminLoadChat(){
-  const pw = adminPw_();
-  if(!pw) return alert("Admin-Passwort fehlt.");
-  if(!adminSelectedRoom) return alert("Bitte Zimmer auswählen.");
-
-  const { data } = await jpost("/api/chat/admin/list", { adminPassword: pw, room: adminSelectedRoom });
-  if(!data.ok) return alert(data.error || "Fehler");
-
-  const box = $("adminChatList");
-  box.innerHTML = "";
-
-  for(const m of data.messages || []){
-    const isAdmin = m.sender === "admin";
-    const c = document.createElement("div");
-    c.className = `card ${isAdmin ? "busy" : "free"}`;
-
-    const seenUser = (m.sender==="admin" && Number(m.visibleToUser)===1 && m.seenByUserAt && Number(m.seenByUserAt)>0);
-    const seenAdmin = (m.sender==="user" && m.seenByAdminAt && Number(m.seenByAdminAt)>0);
-
-    const extra = [];
-    if(m.sender==="admin"){
-      extra.push(Number(m.visibleToUser)===1 ? `<span class="pill">sichtbar</span>` : `<span class="pill red">unsichtbar</span>`);
-      extra.push(seenUser ? `<span class="pill green">User gelesen</span>` : `<span class="pill">User ungelesen</span>`);
-    } else {
-      extra.push(seenAdmin ? `<span class="pill green">Admin gelesen</span>` : `<span class="pill">Admin ungelesen</span>`);
-    }
-
-    c.innerHTML = `
-      <b>${isAdmin ? "Admin" : "User"}</b>
-      <span class="small muted">${new Date(m.createdAt).toLocaleString("de-DE")}</span>
-      ${extra.join(" ")}
-      <div style="margin-top:6px;">${escapeHtml(m.body)}</div>
-    `;
-    box.appendChild(c);
-  }
-
-  await checkAdminChatUnread(false);
-}
-
-async function adminSendChat(){
-  const pw = adminPw_();
-  if(!pw) return alert("Admin-Passwort fehlt.");
-  if(!adminSelectedRoom) return alert("Bitte Zimmer auswählen.");
-
-  const text = $("adminChatText").value.trim();
-  if(!text) return alert("Text fehlt.");
-
-  const visibleToUser = $("adminVisibleToUser").checked;
-
-  const { data } = await jpost("/api/chat/admin/send", { adminPassword: pw, room: adminSelectedRoom, text, visibleToUser });
-  if(!data.ok) return alert(data.error || "Fehler");
-
-  $("adminChatText").value = "";
-  await adminLoadChat();
-}
-
-/* Admin Log (formatted) */
-async function adminLoadLog(){
-  const pw = adminPw_();
-  if(!pw) return alert("Admin-Passwort fehlt.");
-
-  const { data } = await jpost("/api/admin/log/list", { adminPassword: pw, limit: 300 });
-  if(!data.ok) return alert(data.error || "Fehler");
-
-  const box = $("adminLog");
-  box.innerHTML = "";
-  for(const r of data.rows || []){
-    const c = document.createElement("div");
-    c.className = "card";
-    c.innerHTML = `
-      <b>${new Date(Number(r.ts||0)).toLocaleString("de-DE")}</b>
-      <span class="pill">${escapeHtml(r.action||"")}</span>
-      <div class="small">
-        ${r.type ? `${escapeHtml(r.type)} ${escapeHtml(r.machine)}` : ""}
-        ${r.room ? ` | Zimmer ${escapeHtml(r.room)}` : ""}
-      </div>
-      <div class="small muted">${formatLogDetails(r.details||"")}</div>
-    `;
-    box.appendChild(c);
-  }
-}
-
-/* refresh */
-async function refreshAll(){
-  setStatus("Aktualisiere…");
-  const st = await jget("/api/status");
-  if(!st.ok){
-    setStatus("Fehler: " + (st.error || "Status"));
-    return;
-  }
-  lastStatus = st;
-
-  applyTheme(st.config?.uiTheme || "standard");
-  updateNewsUI(st.newsText || "");
-
-  await loadMyBookings();
-  renderMachinesOverview(st);
-
-  await loadWasherSlots();
-  await checkUserChatUnread();
-
-  setStatus("Bereit.");
-}
-
-/* Enter = Admin Login */
-window.addEventListener("load", () => {
-  const apw = document.getElementById("adminPw");
-  if(apw){
-    apw.addEventListener("keydown", (e) => {
-      if(e.key === "Enter"){
-        e.preventDefault();
-        adminUnlock();
-      }
-    });
-  }
-});
-
-/* chat check 20s */
-setInterval(() => {
-  checkUserChatUnread().catch(()=>{});
-}, 20000);
-
-/* initial */
 refreshAll();
 </script>
 
