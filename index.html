@@ -28,8 +28,8 @@
   .link { font-size: 14px; text-decoration: underline; cursor: pointer; opacity: 0.8; user-select:none; }
   .pill { display:inline-block; padding: 2px 8px; border-radius: 999px; border:1px solid #ddd; font-size: 12px; }
 
-  /* ===== Maschinenübersicht: Liste (Variante B) ===== */
-  #machinesOverview { border: 1px solid #ddd; border-radius: 12px; overflow:hidden; }
+  /* ===== Maschinenübersicht: Liste ===== */
+  #machinesOverview { border: 1px solid #ddd; border-radius: 12px; overflow:hidden; min-height: 44px; }
   .machine-row {
     display: grid;
     grid-template-columns: 26px 1fr auto;
@@ -45,7 +45,8 @@
   .machine-status.busy { background: #1565c0; }
   .machine-status.bad  { background: #b00020; } /* Standard rot kräftig */
 
-  :root[data-theme="highcontrast-magenta"] .machine-status.bad { background: #d81b60; } /* Magenta */
+  /* High-contrast Theme (Magenta) */
+  :root[data-theme="highcontrast-magenta"] .machine-status.bad { background: #d81b60; }
   :root[data-theme="highcontrast-magenta"] .machine-status.free { background: #1b5e20; }
   :root[data-theme="highcontrast-magenta"] .machine-status.busy { background: #0d47a1; }
 
@@ -55,7 +56,6 @@
 
   /* ===== Buchungen farbig ===== */
   .bcard { border:1px solid #ddd; border-radius: 12px; padding:12px; }
-  .b-free { background:#e8f5e9; }
   .b-busy { background:#e3f2fd; }
   .b-bad  { background:#ffebee; }
   .b-top { display:flex; justify-content:space-between; align-items:flex-start; gap:10px; }
@@ -141,12 +141,6 @@
 
     <details open>
       <summary><b>UI Einstellungen (global)</b></summary>
-      <label>Layout</label>
-      <select id="uiLayout">
-        <option value="list">Liste (kompakt)</option>
-        <option value="cards" disabled>Cards (später)</option>
-      </select>
-      <button onclick="adminSaveUILayout()">Layout speichern</button>
 
       <label>Theme</label>
       <select id="uiTheme">
@@ -162,13 +156,6 @@
         <option value="120">2 Stunden</option>
       </select>
       <button onclick="adminSaveDryerMinutes()">Speichern</button>
-    </details>
-
-    <details open>
-      <summary><b>Stations-PIN</b></summary>
-      <label>Stations-PIN setzen/ändern</label>
-      <input id="adminStationPin" type="password" placeholder="Stations-PIN" inputmode="numeric" />
-      <button onclick="adminSetStationPin()">Stations-PIN speichern</button>
     </details>
 
     <details open>
@@ -210,26 +197,30 @@
 </div>
 
 <script>
-/** ✅ WICHTIG: HIER DEINE WORKER-URL EINTRAGEN */
-const API_BASE = "https://snowy-breeze-54f8.schluffi1220.workers.dev"; // <- deine URL
+/** ✅ WICHTIG: HIER DEINE WORKER-URL EINTRAGEN (ohne / am Ende) */
+const API_BASE = "https://snowy-breeze-54f8.schluffi1220.workers.dev";
 
 const $ = (id) => document.getElementById(id);
 function setStatus(msg){ $("status").textContent = msg; }
 
-let lastStatus = null;
-let isAdmin = false;
+function apiUrl(path){
+  return API_BASE.replace(/\/+$/,"") + "/" + String(path||"").replace(/^\/+/,"");
+}
 
 async function jget(path){
-  const r = await fetch(API_BASE + path, { cache:"no-store" });
-  return await r.json().catch(()=>({ ok:false }));
+  const r = await fetch(apiUrl(path), { cache:"no-store" });
+  const txt = await r.text();
+  try { return JSON.parse(txt); } catch { return { ok:false, error:"bad_json", http:r.status, body: txt.slice(0,200) }; }
 }
 async function jpost(path, body){
-  const r = await fetch(API_BASE + path, {
+  const r = await fetch(apiUrl(path), {
     method:"POST",
     headers:{ "Content-Type":"application/json" },
     body: JSON.stringify(body||{})
   });
-  const data = await r.json().catch(()=>({ ok:false }));
+  const txt = await r.text();
+  let data;
+  try { data = JSON.parse(txt); } catch { data = { ok:false, error:"bad_json", http:r.status, body: txt.slice(0,200) }; }
   return { r, data };
 }
 
@@ -257,7 +248,9 @@ function applyTheme(theme){
   document.documentElement.dataset.theme = theme || "standard";
 }
 
-/* ======= Load ======= */
+let lastStatus = null;
+let isAdmin = false;
+
 async function refreshAll(){
   await loadStatus();
   await loadWasherSlots();
@@ -265,15 +258,18 @@ async function refreshAll(){
 }
 
 async function loadStatus(){
-  setStatus("Aktualisiere…");
+  setStatus("Lade Status…");
   const data = await jget("/api/status");
   if(!data.ok){
-    setStatus("Fehler beim Laden.");
+    setStatus("Fehler beim Laden. (" + (data.http || "?") + ") " + (data.error || "") + " " + (data.body || ""));
+    $("machinesOverview").innerHTML = "";
+    $("washerSlotSelect").innerHTML = `<option value="">Keine Slots</option>`;
     return;
   }
+
   lastStatus = data;
 
-  // Global config anwenden
+  // Global Theme anwenden
   if(data.config?.uiTheme) applyTheme(data.config.uiTheme);
 
   // News
@@ -296,7 +292,11 @@ function renderMachinesOverview(status){
   const machines = status.machines || [];
   const bookings = status.bookings || [];
 
-  // active bookings map
+  if(machines.length === 0){
+    box.innerHTML = `<div class="machine-row"><div></div><div class="muted">Keine Maschinen</div><div></div></div>`;
+    return;
+  }
+
   const active = new Map();
   for(const b of bookings){
     if(b.status === "booked") active.set(`${b.type}:${b.machine}`, b);
@@ -309,9 +309,9 @@ function renderMachinesOverview(status){
 
   for(const m of machines){
     const b = active.get(`${m.type}:${m.machine}`);
+
     let cls = "free";
     let text = "Frei";
-
     if(Number(m.defect) === 1){
       cls = "bad";
       text = "Defekt";
@@ -331,7 +331,7 @@ function renderMachinesOverview(status){
       <div class="machine-actions"></div>
     `;
 
-    // Trockner Schnellaktionen: Buchen / FERTIG (nur wenn nicht defekt)
+    // Trockner Schnellaktionen
     const act = row.querySelector(".machine-actions");
     if(m.type === "dryer" && Number(m.defect) === 0){
       if(!b){
@@ -340,8 +340,6 @@ function renderMachinesOverview(status){
         btn.onclick = () => bookDryer(Number(m.machine));
         act.appendChild(btn);
       } else {
-        // Wenn eigene Buchung → FERTIG
-        // (Wir prüfen über MyBookings Cache - wird in loadMyBookings gesetzt)
         const mine = (window.myBookingsCache||[]).find(x => x.type==="dryer" && Number(x.machine)===Number(m.machine) && x.status==="booked");
         if(mine){
           const btn = document.createElement("button");
@@ -377,19 +375,15 @@ async function loadWasherSlots(){
     return;
   }
 
-  // Heute (nur für Demo: wir nehmen "heute" und die nächsten N Tage aus config)
-  // Die eigentliche Slotlogik liegt im Worker bei euch schon; hier nur Auswahl aus config-Zeiten.
-  // Wir buchen dann über /api/washer/book mit slotStart/slotEnd.
   const now = new Date();
   const day = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0,0,0,0);
 
-  // Liste: HH:mm
   for(const t of times){
     const [hh,mm] = String(t).split(":").map(Number);
     if(Number.isNaN(hh)||Number.isNaN(mm)) continue;
     const start = new Date(day.getTime());
     start.setHours(hh,mm,0,0);
-    const end = new Date(start.getTime() + 2*60*60*1000); // Waschslot 2h (wie bei euch)
+    const end = new Date(start.getTime() + 2*60*60*1000);
     const opt = document.createElement("option");
     opt.value = String(start.getTime());
     opt.textContent = `${t} – ${fmtTime(end.getTime())}`;
@@ -410,7 +404,7 @@ async function loadMyBookings(){
 
   const { data } = await jpost("/api/my-bookings", { room, pin });
   if(!data.ok){
-    box.innerHTML = `<div class="status">Fehler</div>`;
+    box.innerHTML = `<div class="status">Fehler: ${escapeHtml(data.error||"")}</div>`;
     return;
   }
 
@@ -440,11 +434,8 @@ async function loadMyBookings(){
     box.appendChild(card);
   }
 
-  // Maschinenübersicht nochmal rendern, damit FERTIG Buttons ggf. erscheinen
   if(lastStatus?.ok) renderMachinesOverview(lastStatus);
 }
-
-/* ======= Actions ======= */
 
 async function bookWasher(){
   const { room, pin, stationPin } = needAccess_();
@@ -513,34 +504,32 @@ function toggleAdmin(){
     $("adminPw").focus();
   }
 }
-
 function adminPw_(){ return $("adminPw").value.trim(); }
 
 window.addEventListener("load", () => {
-  const apw = document.getElementById("adminPw");
-  if(apw){
-    apw.addEventListener("keydown", (e) => {
-      if(e.key === "Enter"){
-        e.preventDefault();
-        adminUnlock();
-      }
-    });
-  }
+  const apw = $("adminPw");
+  apw.addEventListener("keydown", (e) => {
+    if(e.key === "Enter"){
+      e.preventDefault();
+      adminUnlock();
+    }
+  });
 });
 
 async function adminUnlock(){
   const pw = adminPw_();
   if(!pw) return alert("Admin-Passwort fehlt.");
+
   const { data } = await jpost("/api/admin/has", { adminPassword: pw });
   if(!data.ok) return alert(data.error || "Fehler");
   if(!data.hasAdmin) return alert("Admin nicht freigeschaltet.");
+
   isAdmin = true;
   $("adminBody").style.display = "";
 
-  // UI Felder aus Status
   await loadStatus();
+
   if(lastStatus?.config){
-    $("uiLayout").value = lastStatus.config.uiLayout || "list";
     $("uiTheme").value = lastStatus.config.uiTheme || "standard";
     $("dryerMinutes").value = String(lastStatus.config.dryerMinutes || 120);
     $("daysPast").value = String(lastStatus.config.daysPast || 1);
@@ -563,7 +552,6 @@ function buildTimeGrid(selected){
   const grid = $("timeGrid");
   grid.innerHTML = "";
   const set = new Set((selected||[]).map(String));
-  // 06:00 - 22:00 (passt zu deinem Screenshot)
   const times = ["06:00","08:00","10:00","12:00","14:00","16:00","18:00","20:00","22:00"];
   for(const t of times){
     const id = "t_"+t.replace(":","");
@@ -574,17 +562,8 @@ function buildTimeGrid(selected){
     wrap.style.fontWeight = "normal";
     wrap.innerHTML = `<input type="checkbox" id="${id}"> <span>${t}</span>`;
     grid.appendChild(wrap);
-    setTimeout(()=>{ $(id).checked = set.has(t); },0);
+    $(id).checked = set.has(t);
   }
-}
-
-async function adminSetStationPin(){
-  const pw = adminPw_();
-  const sp = $("adminStationPin").value.trim();
-  if(!sp) return alert("Stations-PIN fehlt.");
-  const { data } = await jpost("/api/admin/set-station-pin", { adminPassword: pw, stationPin: sp });
-  if(!data.ok) return alert(data.error || "Fehler");
-  alert("✅ Gespeichert.");
 }
 
 async function adminSaveTimes(){
@@ -621,15 +600,6 @@ async function adminSaveNews(){
   await refreshAll();
 }
 
-async function adminSaveUILayout(){
-  const pw = adminPw_();
-  const layout = $("uiLayout").value;
-  const { data } = await jpost("/api/admin/set-ui-layout", { adminPassword: pw, layout });
-  if(!data.ok) return alert(data.error || "Fehler");
-  alert("✅ Gespeichert.");
-  await refreshAll();
-}
-
 async function adminSaveUITheme(){
   const pw = adminPw_();
   const theme = $("uiTheme").value;
@@ -648,7 +618,7 @@ async function adminSaveDryerMinutes(){
   await refreshAll();
 }
 
-/* init */
+/* Init */
 refreshAll();
 </script>
 </body>
