@@ -12,8 +12,9 @@
       --bg:#ffffff;
       --text:#111;
       --muted:#666;
-      --border:#e2e2e2;
+      --border:#e6e6e6;
       --card:#fff;
+      --chip:#f5f5f5;
     }
     body{font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial; margin:16px; max-width:980px; background:var(--bg); color:var(--text)}
     h1{margin:0 0 8px}
@@ -26,37 +27,42 @@
     .ok{color:#0a7}
     .err{color:#c00}
     .sep{height:1px;background:#eee;margin:10px 0}
-    .list{display:flex; flex-direction:column; gap:8px}
 
-    .slotRow{display:flex; justify-content:space-between; align-items:center; gap:10px; border:1px solid var(--border); border-radius:14px; padding:10px}
-    .slotRow.disabled{opacity:.55}
-    .badge{padding:4px 10px; border-radius:999px; font-size:12px; border:1px solid var(--border)}
-    .b-green{background:#e9fff3}
-    .b-red{background:#ffecec}
-    .b-blue{background:#eef5ff}
-
-    .machineRow{display:flex; justify-content:space-between; align-items:center; border:1px solid var(--border); border-radius:14px; padding:10px}
     .dot{width:14px; height:14px; border-radius:50%; display:inline-block; margin-right:8px; vertical-align:middle}
     .dot.free{background:var(--free)}
     .dot.busy{background:var(--busy)}
     .dot.defect{background:var(--defect)}
     .small{font-size:13px}
 
-    /* Layout switch */
-    body.ui-cards .list.cardsGrid{
+    /* layout: list (default) */
+    .grid{display:flex; flex-direction:column; gap:8px}
+    .item{border:1px solid var(--border); border-radius:14px; padding:10px}
+    .itemHead{display:flex; justify-content:space-between; gap:10px; flex-wrap:wrap}
+
+    /* layout: tiles (old-like) */
+    body.ui-tiles .grid{
       display:grid;
       grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
       gap:10px;
     }
-    body.ui-cards .slotRow, body.ui-cards .machineRow{flex-direction:column; align-items:flex-start}
-    body.ui-cards .slotRow .row, body.ui-cards .machineRow .row{width:100%; justify-content:space-between}
 
-    /* High contrast theme */
+    /* high contrast */
     body.ui-hc{
       --defect:#ff00aa;
     }
     body.ui-hc .dot{width:18px;height:18px; box-shadow:0 0 0 2px #1112}
     body.ui-hc .dot.defect{box-shadow:0 0 0 3px #000}
+
+    .chip{
+      display:inline-flex; align-items:center; gap:8px;
+      background:var(--chip); border:1px solid var(--border);
+      border-radius:999px; padding:6px 10px; font-size:13px;
+    }
+    .btnSmall{padding:8px 10px; font-size:14px}
+    .btnMachine{background:#fff; border:1px solid #aaa}
+    .btnMachine:hover{filter:brightness(0.97)}
+    .btnMachine[disabled]{opacity:.5; cursor:not-allowed}
+    .danger{border-color:#c00; color:#c00}
   </style>
 </head>
 <body>
@@ -97,20 +103,31 @@
     <b>2) Maschinenübersicht</b>
     <div class="muted">Grün: frei · Blau: belegt · Magenta: defekt</div>
     <div class="sep"></div>
-    <div id="machines" class="list cardsGrid"></div>
+    <div id="machines" class="grid"></div>
   </div>
 
   <div class="card">
-    <b>3) Wasch-Slots</b>
-    <div class="muted">Slots zeigen freie Maschinen. Belegte Slots sind grau und nicht buchbar.</div>
+    <b>3) Slot auswählen</b>
+    <div class="muted">Slots als Dropdown (wie vorher). Danach siehst du sofort die freien Maschinen als Buttons.</div>
     <div class="sep"></div>
-    <div id="slots" class="list cardsGrid"></div>
+
+    <div class="row">
+      <div style="min-width:340px">
+        <label>Wasch-Slot</label>
+        <select id="slotSelect" onchange="renderSlotMachines()">
+          <option value="">Bitte auswählen…</option>
+        </select>
+      </div>
+      <div class="chip" id="slotInfo" style="display:none"></div>
+    </div>
+
+    <div style="margin-top:10px" id="slotMachines"></div>
   </div>
 
   <div class="card">
     <b>4) Meine Buchungen</b>
     <div class="sep"></div>
-    <div id="myBookings" class="list cardsGrid"></div>
+    <div id="myBookings" class="grid"></div>
   </div>
 
   <div class="card">
@@ -119,8 +136,10 @@
     <textarea id="fbText" rows="3" placeholder="Feedback / Problem melden"></textarea>
     <div class="row" style="margin-top:10px">
       <button onclick="sendFeedback()">Feedback senden</button>
+      <button class="btnSmall" onclick="loadUserVisibleFeedback()">Antworten laden</button>
       <span id="fbMsg" class="muted"></span>
     </div>
+    <div id="fbThread" style="margin-top:10px"></div>
   </div>
 
   <div class="card">
@@ -144,8 +163,8 @@
         <div>
           <label>Layout</label>
           <select id="uiLayout">
-            <option value="list">Standard (Liste)</option>
-            <option value="cards">Karten</option>
+            <option value="tiles">Kacheln (alt)</option>
+            <option value="list">Liste</option>
           </select>
         </div>
         <div>
@@ -160,7 +179,27 @@
 
       <div class="sep"></div>
 
-      <b>Tage-Fenster</b>
+      <b>News</b>
+      <div class="row" style="margin-top:8px">
+        <input id="adminNewsText" style="min-width:320px" placeholder="Text für Users"/>
+        <label style="display:flex;align-items:center;gap:8px;margin:0">
+          <input type="checkbox" id="adminNewsEnabled"/> aktiv
+        </label>
+        <button onclick="adminSaveNews()">Speichern</button>
+      </div>
+
+      <div class="sep"></div>
+
+      <b>Feedback Inbox</b>
+      <div class="row" style="margin-top:8px">
+        <button onclick="adminLoadFeedback()">Inbox laden</button>
+        <span id="adminSaveMsg" class="muted"></span>
+      </div>
+      <div id="adminFeedbackList" style="margin-top:10px"></div>
+
+      <div class="sep"></div>
+
+      <b>Zeiten & Fenster</b>
       <div class="row" style="margin-top:8px">
         <div>
           <label>Vergangene Tage</label>
@@ -173,28 +212,12 @@
         <button onclick="adminSaveDays()">Speichern</button>
       </div>
 
-      <div class="sep"></div>
-
-      <b>Wasch-Zeiten</b>
-      <div class="muted">Kommagetrennt, z.B. 06:00,08:00,10:00,...</div>
-      <div class="row" style="margin-top:8px">
-        <input id="washerTimes" style="min-width:320px" placeholder="06:00,08:00,10:00,..."/>
-        <button onclick="adminSetTimes()">Speichern</button>
-      </div>
-
-      <div class="sep"></div>
-
-      <b>News</b>
-      <div class="row" style="margin-top:8px">
-        <input id="adminNewsText" style="min-width:320px" placeholder="Text für Users"/>
-        <label style="display:flex;align-items:center;gap:8px;margin:0">
-          <input type="checkbox" id="adminNewsEnabled"/> aktiv
-        </label>
-        <button onclick="adminSaveNews()">Speichern</button>
-      </div>
-
       <div class="row" style="margin-top:10px">
-        <span id="adminSaveMsg" class="muted"></span>
+        <div style="min-width:340px">
+          <label>Wasch-Zeiten (Komma getrennt)</label>
+          <input id="washerTimes" placeholder="06:00,08:00,10:00,..."/>
+        </div>
+        <button onclick="adminSetTimes()">Speichern</button>
       </div>
     </div>
   </div>
@@ -244,9 +267,10 @@
   }
 
   let STATUS = null;
+  let SLOTS = [];
 
   function applyUiFromConfig(cfg){
-    document.body.classList.toggle("ui-cards", cfg?.uiLayout === "cards");
+    document.body.classList.toggle("ui-tiles", cfg?.uiLayout === "tiles");
     document.body.classList.toggle("ui-hc", cfg?.uiTheme === "highcontrast");
   }
 
@@ -258,7 +282,6 @@
 
     document.getElementById("buildInfo").textContent = `build: ${st.build}`;
 
-    // news
     if (st.newsText && st.newsText.trim()){
       document.getElementById("newsCard").style.display = "block";
       document.getElementById("newsText").textContent = st.newsText;
@@ -266,22 +289,21 @@
       document.getElementById("newsCard").style.display = "none";
     }
 
-    // apply UI (global)
     applyUiFromConfig(st.config);
 
-    // fill admin defaults
+    // admin defaults
     if (st.config){
       document.getElementById("daysPast").value = st.config.daysPast ?? "";
       document.getElementById("daysFuture").value = st.config.daysFuture ?? "";
       document.getElementById("washerTimes").value = (st.config.washerTimes||[]).join(",");
-      document.getElementById("uiLayout").value = st.config.uiLayout || "list";
+      document.getElementById("uiLayout").value = st.config.uiLayout || "tiles";
       document.getElementById("uiTheme").value = st.config.uiTheme || "standard";
       document.getElementById("adminNewsText").value = st.newsText || "";
       document.getElementById("adminNewsEnabled").checked = !!(st.newsText && st.newsText.trim().length);
     }
 
     renderMachines();
-    await loadSlots();
+    await loadSlotsDropdown();
     await loadMyBookings();
 
     setMsg("msg","OK",true);
@@ -304,77 +326,103 @@
     }
 
     for (const m of machines){
-      if (m.type !== "washer") continue; // erstmal nur Waschmaschinen im Fokus
+      if (m.type !== "washer") continue;
       const s = statusFor(m);
       const div = document.createElement("div");
-      div.className = "machineRow";
+      div.className = "item";
       div.innerHTML = `
-        <div>
-          <span class="dot ${s.cls}"></span>
-          <b>Waschmaschine ${m.machine}</b>
-          <div class="muted small">${s.label}</div>
+        <div class="itemHead">
+          <div>
+            <span class="dot ${s.cls}"></span>
+            <b>Waschmaschine ${m.machine}</b>
+            <div class="muted small">${s.label}</div>
+          </div>
+          <div class="muted small">${m.lastRoom ? ("zuletzt: "+m.lastRoom) : ""}</div>
         </div>
-        <div class="muted small">${m.lastRoom ? ("zuletzt: "+m.lastRoom) : ""}</div>
       `;
       el.appendChild(div);
     }
   }
 
-  async function loadSlots(){
-    const el = document.getElementById("slots");
-    el.innerHTML = "";
+  async function loadSlotsDropdown(){
     const stationPin = val("stationPin");
     const res = await jpost("/api/washer/free-slots", { stationPin });
-    if (!res.ok){ el.innerHTML = `<div class="err">Fehler: ${res.error||res.message}</div>`; return; }
+    const sel = document.getElementById("slotSelect");
+    sel.innerHTML = `<option value="">Bitte auswählen…</option>`;
+    SLOTS = [];
 
-    for (const s of res.slots){
-      const div = document.createElement("div");
-      div.className = "slotRow" + (s.disabled ? " disabled" : "");
-
-      const badge = s.disabled ? `<span class="badge b-red">belegt</span>` : `<span class="badge b-green">frei</span>`;
-      const machines = (s.freeMachines || []).join(", ");
-      const machineSelect = s.disabled
-        ? `<span class="muted small">Maschinen: ${machines || "-"}</span>`
-        : `
-          <label class="muted small" style="margin:0">
-            Maschine:
-            <select data-start="${s.start}">
-              <option value="">auto</option>
-              ${(s.freeMachines||[]).map(m => `<option value="${m}">${m}</option>`).join("")}
-            </select>
-          </label>
-        `;
-
-      div.innerHTML = `
-        <div>
-          <div><b>${s.label}</b></div>
-          <div class="muted small">frei: ${machines || "-"}</div>
-        </div>
-        <div class="row" style="align-items:center">
-          ${badge}
-          ${machineSelect}
-          <button ${s.disabled ? "disabled":""} onclick="bookWasher(${s.start})">Buchen</button>
-        </div>
-      `;
-      el.appendChild(div);
+    if (!res.ok){
+      setMsg("msg","Slots Fehler: "+(res.error||res.message), false);
+      return;
     }
+
+    SLOTS = res.slots || [];
+    for (const s of SLOTS){
+      const freeText = s.disabled ? "belegt" : `frei: ${(s.freeMachines||[]).join(",")}`;
+      const text = `${s.label} (${freeText})`;
+      const opt = document.createElement("option");
+      opt.value = String(s.start);
+      opt.textContent = text;
+      if (s.disabled) opt.disabled = true;
+      sel.appendChild(opt);
+    }
+
+    renderSlotMachines();
   }
 
-  async function bookWasher(start){
+  function renderSlotMachines(){
+    const start = Number(document.getElementById("slotSelect").value);
+    const box = document.getElementById("slotMachines");
+    const info = document.getElementById("slotInfo");
+    box.innerHTML = "";
+    info.style.display = "none";
+
+    if (!start) return;
+    const slot = SLOTS.find(s => s.start === start);
+    if (!slot) return;
+
+    info.style.display = "inline-flex";
+    info.textContent = `${slot.label} | frei: ${slot.freeCount}/${slot.totalCount}`;
+
+    const free = slot.freeMachines || [];
+    if (!free.length){
+      box.innerHTML = `<div class="muted">Keine freie Maschine.</div>`;
+      return;
+    }
+
+    const wrap = document.createElement("div");
+    wrap.className = "row";
+    wrap.style.marginTop = "10px";
+
+    // Auto button
+    const btnAuto = document.createElement("button");
+    btnAuto.className = "btnMachine btnSmall";
+    btnAuto.textContent = `Auto buchen (Maschine ${free[0]})`;
+    btnAuto.onclick = () => bookWasher(start, null);
+    wrap.appendChild(btnAuto);
+
+    for (const m of free){
+      const b = document.createElement("button");
+      b.className = "btnMachine btnSmall";
+      b.textContent = `Maschine ${m} buchen`;
+      b.onclick = () => bookWasher(start, m);
+      wrap.appendChild(b);
+    }
+
+    box.appendChild(wrap);
+  }
+
+  async function bookWasher(start, machine){
     const room = val("room");
     const pin = val("pin");
     const stationPin = val("stationPin");
-
-    // read selected machine (if any)
-    const sel = document.querySelector(`select[data-start="${start}"]`);
-    const machine = sel && sel.value ? Number(sel.value) : null;
 
     setMsg("msg","Buche…",true);
     const res = await jpost("/api/washer/book", { room, pin, stationPin, start, machine });
 
     if (!res.ok){
-      setMsg("msg","Buchen fehlgeschlagen: " + (res.message||res.error||"unknown"), false);
-      alert("Buchung Fehler:\n\n" + JSON.stringify(res, null, 2));
+      setMsg("msg","Buchen fehlgeschlagen: "+(res.message||res.error||"unknown"), false);
+      alert(JSON.stringify(res,null,2));
       return;
     }
 
@@ -399,15 +447,16 @@
 
     for (const b of res.bookings){
       const div = document.createElement("div");
-      div.className = "slotRow";
+      div.className = "item";
       div.innerHTML = `
-        <div>
-          <div><b>${b.type==="washer"?"Waschmaschine":"Trockner"} ${b.machine}</b></div>
-          <div class="muted small">${fmt(b.start)} – ${fmt(b.end)}</div>
-        </div>
-        <div class="row" style="align-items:center">
-          <span class="badge b-blue">gebucht</span>
-          <button onclick="cancelBooking('${b.id}')">Stornieren</button>
+        <div class="itemHead">
+          <div>
+            <b>${b.type==="washer"?"Waschmaschine":"Trockner"} ${b.machine}</b>
+            <div class="muted small">${fmt(b.start)} – ${fmt(b.end)}</div>
+          </div>
+          <div>
+            <button class="btnSmall danger" onclick="cancelBooking('${b.id}')">Stornieren</button>
+          </div>
         </div>
       `;
       el.appendChild(div);
@@ -442,6 +491,37 @@
     setMsg("fbMsg","Gesendet.",true);
   }
 
+  async function loadUserVisibleFeedback(){
+    const room = val("room");
+    const pin = val("pin");
+    const box = document.getElementById("fbThread");
+    box.innerHTML = "";
+    if (!room || !pin){ setMsg("fbMsg","Zimmer + PIN nötig.", false); return; }
+    setMsg("fbMsg","Lade…",true);
+    const res = await jpost("/api/feedback/user-visible", { room, pin });
+    if (!res.ok){ setMsg("fbMsg","Fehler: "+(res.error||res.message), false); return; }
+    setMsg("fbMsg","OK",true);
+
+    const items = res.items || [];
+    if (!items.length){
+      box.innerHTML = `<div class="muted">Keine Antworten sichtbar.</div>`;
+      return;
+    }
+
+    for (const it of items){
+      const div = document.createElement("div");
+      div.className = "item";
+      div.innerHTML = `
+        <b>Du:</b> <span class="muted small">${fmt(it.createdAt)}</span>
+        <div style="margin:6px 0">${escapeHtml(it.message)}</div>
+        <div class="sep"></div>
+        <b>Admin:</b> <span class="muted small">${it.repliedAt ? fmt(it.repliedAt) : ""}</span>
+        <div style="margin-top:6px">${escapeHtml(it.adminReply || "(noch keine Antwort)")}</div>
+      `;
+      box.appendChild(div);
+    }
+  }
+
   // Admin: Enter = Login
   document.getElementById("adminPw").addEventListener("keydown", (e)=>{
     if (e.key === "Enter") adminLogin();
@@ -456,32 +536,11 @@
     document.getElementById("adminArea").style.display = "block";
   }
 
-  async function adminSetTimes(){
-    const adminPassword = val("adminPw");
-    const times = val("washerTimes").split(",").map(s=>s.trim()).filter(Boolean);
-    setMsg("adminSaveMsg","Speichere…",true);
-    const res = await jpost("/api/admin/set-washer-times", { adminPassword, times });
-    if (!res.ok){ setMsg("adminSaveMsg","Fehler: "+(res.error||res.message), false); alert(JSON.stringify(res,null,2)); return; }
-    setMsg("adminSaveMsg","Gespeichert.",true);
-    await refreshAll();
-  }
-
-  async function adminSaveDays(){
-    const adminPassword = val("adminPw");
-    const daysPast = Number(val("daysPast"));
-    const daysFuture = Number(val("daysFuture"));
-    setMsg("adminSaveMsg","Speichere…",true);
-    const res = await jpost("/api/admin/set-days-window", { adminPassword, daysPast, daysFuture });
-    if (!res.ok){ setMsg("adminSaveMsg","Fehler: "+(res.error||res.message), false); alert(JSON.stringify(res,null,2)); return; }
-    setMsg("adminSaveMsg","Gespeichert.",true);
-    await refreshAll();
-  }
-
   async function adminSaveUI(){
     const adminPassword = val("adminPw");
     const uiLayout = val("uiLayout");
     const uiTheme = val("uiTheme");
-    setMsg("adminSaveMsg","Speichere…",true);
+    setMsg("adminSaveMsg","Speichere UI…",true);
     const res = await jpost("/api/admin/set-ui", { adminPassword, uiLayout, uiTheme });
     if (!res.ok){ setMsg("adminSaveMsg","Fehler: "+(res.error||res.message), false); alert(JSON.stringify(res,null,2)); return; }
     setMsg("adminSaveMsg","Gespeichert.",true);
@@ -492,11 +551,100 @@
     const adminPassword = val("adminPw");
     const text = val("adminNewsText");
     const enabled = document.getElementById("adminNewsEnabled").checked;
-    setMsg("adminSaveMsg","Speichere…",true);
+    setMsg("adminSaveMsg","Speichere News…",true);
     const res = await jpost("/api/admin/news/set", { adminPassword, text, enabled });
     if (!res.ok){ setMsg("adminSaveMsg","Fehler: "+(res.error||res.message), false); alert(JSON.stringify(res,null,2)); return; }
     setMsg("adminSaveMsg","Gespeichert.",true);
     await refreshAll();
+  }
+
+  async function adminLoadFeedback(){
+    const adminPassword = val("adminPw");
+    const box = document.getElementById("adminFeedbackList");
+    box.innerHTML = "";
+    setMsg("adminSaveMsg","Lade Inbox…",true);
+
+    const res = await jpost("/api/admin/feedback/list", { adminPassword });
+    if (!res.ok){ setMsg("adminSaveMsg","Fehler: "+(res.error||res.message), false); alert(JSON.stringify(res,null,2)); return; }
+    setMsg("adminSaveMsg","OK",true);
+
+    const items = res.items || [];
+    if (!items.length){
+      box.innerHTML = `<div class="muted">Keine Feedbacks.</div>`;
+      return;
+    }
+
+    for (const it of items){
+      const div = document.createElement("div");
+      div.className = "item";
+      const vis = it.visibleToUser ? "✅ sichtbar" : "❌ verborgen";
+      const read = it.userReadAt ? "👁 gelesen" : "🆕 ungelesen";
+      div.innerHTML = `
+        <div class="itemHead">
+          <div>
+            <b>Zimmer ${it.room}</b>
+            <div class="muted small">${fmt(it.createdAt)} · ${vis} · ${read}</div>
+          </div>
+          <button class="btnSmall" onclick="toggleReply('${it.id}')">Antwort</button>
+        </div>
+        <div style="margin-top:8px">${escapeHtml(it.message)}</div>
+        <div id="reply_${it.id}" style="display:none; margin-top:10px">
+          <label>Antwort</label>
+          <textarea id="replyText_${it.id}" rows="3">${escapeHtml(it.adminReply||"")}</textarea>
+          <label style="display:flex;align-items:center;gap:8px;margin:8px 0 0">
+            <input type="checkbox" id="replyVis_${it.id}" ${it.visibleToUser ? "checked":""}/> Für User sichtbar
+          </label>
+          <div class="row" style="margin-top:8px">
+            <button class="btnSmall" onclick="saveReply('${it.id}')">Speichern</button>
+          </div>
+        </div>
+      `;
+      box.appendChild(div);
+    }
+  }
+
+  function toggleReply(id){
+    const el = document.getElementById("reply_"+id);
+    el.style.display = (el.style.display === "none" ? "block" : "none");
+  }
+
+  async function saveReply(id){
+    const adminPassword = val("adminPw");
+    const reply = document.getElementById("replyText_"+id).value;
+    const visibleToUser = document.getElementById("replyVis_"+id).checked;
+    setMsg("adminSaveMsg","Speichere Antwort…",true);
+    const res = await jpost("/api/admin/feedback/reply", { adminPassword, id, reply, visibleToUser });
+    if (!res.ok){ setMsg("adminSaveMsg","Fehler: "+(res.error||res.message), false); alert(JSON.stringify(res,null,2)); return; }
+    setMsg("adminSaveMsg","Gespeichert.",true);
+    await adminLoadFeedback();
+  }
+
+  async function adminSaveDays(){
+    const adminPassword = val("adminPw");
+    const daysPast = Number(val("daysPast"));
+    const daysFuture = Number(val("daysFuture"));
+    setMsg("adminSaveMsg","Speichere Fenster…",true);
+    const res = await jpost("/api/admin/set-days-window", { adminPassword, daysPast, daysFuture });
+    if (!res.ok){ setMsg("adminSaveMsg","Fehler: "+(res.error||res.message), false); alert(JSON.stringify(res,null,2)); return; }
+    setMsg("adminSaveMsg","Gespeichert.",true);
+    await refreshAll();
+  }
+
+  async function adminSetTimes(){
+    const adminPassword = val("adminPw");
+    const times = val("washerTimes").split(",").map(s=>s.trim()).filter(Boolean);
+    setMsg("adminSaveMsg","Speichere Zeiten…",true);
+    const res = await jpost("/api/admin/set-washer-times", { adminPassword, times });
+    if (!res.ok){ setMsg("adminSaveMsg","Fehler: "+(res.error||res.message), false); alert(JSON.stringify(res,null,2)); return; }
+    setMsg("adminSaveMsg","Gespeichert.",true);
+    await refreshAll();
+  }
+
+  function escapeHtml(s){
+    return String(s||"")
+      .replaceAll("&","&amp;")
+      .replaceAll("<","&lt;")
+      .replaceAll(">","&gt;");
   }
 
   refreshAll();
