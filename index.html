@@ -5,35 +5,68 @@
   <meta name="viewport" content="width=device-width,initial-scale=1"/>
   <title>Wasch-Portal</title>
   <style>
-    body{font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial; margin:16px; max-width:980px}
+    :root{
+      --free:#22c55e;
+      --busy:#3b82f6;
+      --defect:#ff00aa;
+      --bg:#ffffff;
+      --text:#111;
+      --muted:#666;
+      --border:#e2e2e2;
+      --card:#fff;
+    }
+    body{font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial; margin:16px; max-width:980px; background:var(--bg); color:var(--text)}
     h1{margin:0 0 8px}
-    .row{display:flex; gap:12px; flex-wrap:wrap}
-    .card{border:1px solid #ddd; border-radius:12px; padding:12px; margin:10px 0}
+    .muted{color:var(--muted); font-size:13px}
+    .row{display:flex; gap:12px; flex-wrap:wrap; align-items:flex-end}
+    .card{border:1px solid var(--border); border-radius:14px; padding:12px; margin:10px 0; background:var(--card)}
     label{display:block; font-size:14px; margin:6px 0 2px}
-    input,button,textarea{font-size:16px; padding:10px; border-radius:10px; border:1px solid #bbb}
+    input,button,textarea,select{font-size:16px; padding:10px; border-radius:10px; border:1px solid #bbb}
     button{cursor:pointer}
-    .muted{color:#666; font-size:13px}
     .ok{color:#0a7}
     .err{color:#c00}
-    .list{display:flex; flex-direction:column; gap:8px}
-    .slot{display:flex; justify-content:space-between; align-items:center; gap:10px; border:1px solid #e2e2e2; border-radius:12px; padding:10px}
-    .slot.disabled{opacity:.55}
-    .badge{padding:4px 10px; border-radius:999px; font-size:12px; border:1px solid #ddd}
-    .b-green{background:#e9fff3}
-    .b-blue{background:#eef5ff}
-    .b-red{background:#ffecec}
-    .machine{display:flex; justify-content:space-between; align-items:center; border:1px solid #e2e2e2; border-radius:12px; padding:10px}
-    .dot{width:14px; height:14px; border-radius:50%; display:inline-block; margin-right:8px; vertical-align:middle}
-    .dot.free{background:#21c55d}
-    .dot.busy{background:#3b82f6}
-    .dot.defect{background:#ff00aa}
-    .small{font-size:13px}
     .sep{height:1px;background:#eee;margin:10px 0}
+    .list{display:flex; flex-direction:column; gap:8px}
+
+    .slotRow{display:flex; justify-content:space-between; align-items:center; gap:10px; border:1px solid var(--border); border-radius:14px; padding:10px}
+    .slotRow.disabled{opacity:.55}
+    .badge{padding:4px 10px; border-radius:999px; font-size:12px; border:1px solid var(--border)}
+    .b-green{background:#e9fff3}
+    .b-red{background:#ffecec}
+    .b-blue{background:#eef5ff}
+
+    .machineRow{display:flex; justify-content:space-between; align-items:center; border:1px solid var(--border); border-radius:14px; padding:10px}
+    .dot{width:14px; height:14px; border-radius:50%; display:inline-block; margin-right:8px; vertical-align:middle}
+    .dot.free{background:var(--free)}
+    .dot.busy{background:var(--busy)}
+    .dot.defect{background:var(--defect)}
+    .small{font-size:13px}
+
+    /* Layout switch */
+    body.ui-cards .list.cardsGrid{
+      display:grid;
+      grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+      gap:10px;
+    }
+    body.ui-cards .slotRow, body.ui-cards .machineRow{flex-direction:column; align-items:flex-start}
+    body.ui-cards .slotRow .row, body.ui-cards .machineRow .row{width:100%; justify-content:space-between}
+
+    /* High contrast theme */
+    body.ui-hc{
+      --defect:#ff00aa;
+    }
+    body.ui-hc .dot{width:18px;height:18px; box-shadow:0 0 0 2px #1112}
+    body.ui-hc .dot.defect{box-shadow:0 0 0 3px #000}
   </style>
 </head>
 <body>
   <h1>Wasch-Portal</h1>
   <div class="muted" id="buildInfo"></div>
+
+  <div class="card" id="newsCard" style="display:none">
+    <b>Info</b>
+    <div id="newsText" style="margin-top:6px"></div>
+  </div>
 
   <div class="card">
     <b>1) Zugang</b>
@@ -44,12 +77,15 @@
       </div>
       <div>
         <label>PIN (4-stellig)</label>
-        <input id="pin" inputmode="numeric" placeholder="z.B. 1234"/>
+        <input id="pin" type="password" inputmode="numeric" placeholder="••••" autocomplete="off"/>
       </div>
       <div>
         <label>Stations-PIN</label>
-        <input id="stationPin" placeholder="Stations-PIN"/>
+        <input id="stationPin" type="password" placeholder="••••" autocomplete="off"/>
       </div>
+      <label style="display:flex;align-items:center;gap:8px;margin:0">
+        <input type="checkbox" id="showPins" onchange="togglePins()"/> PIN anzeigen
+      </label>
     </div>
     <div style="margin-top:10px" class="row">
       <button onclick="refreshAll()">Aktualisieren</button>
@@ -61,20 +97,20 @@
     <b>2) Maschinenübersicht</b>
     <div class="muted">Grün: frei · Blau: belegt · Magenta: defekt</div>
     <div class="sep"></div>
-    <div id="machines" class="list"></div>
+    <div id="machines" class="list cardsGrid"></div>
   </div>
 
   <div class="card">
-    <b>3) Freie Wasch-Slots</b>
-    <div class="muted">Belegte Slots werden grau angezeigt.</div>
+    <b>3) Wasch-Slots</b>
+    <div class="muted">Slots zeigen freie Maschinen. Belegte Slots sind grau und nicht buchbar.</div>
     <div class="sep"></div>
-    <div id="slots" class="list"></div>
+    <div id="slots" class="list cardsGrid"></div>
   </div>
 
   <div class="card">
     <b>4) Meine Buchungen</b>
     <div class="sep"></div>
-    <div id="myBookings" class="list"></div>
+    <div id="myBookings" class="list cardsGrid"></div>
   </div>
 
   <div class="card">
@@ -94,54 +130,67 @@
         <label>Admin-Passwort</label>
         <input id="adminPw" type="password" placeholder="Admin Passwort"/>
       </div>
-      <div style="align-self:flex-end">
-        <button id="adminLoginBtn" onclick="adminLogin()">Login</button>
+      <div>
+        <button onclick="adminLogin()">Login</button>
       </div>
-      <span id="adminMsg" class="muted" style="align-self:flex-end"></span>
+      <span id="adminMsg" class="muted"></span>
     </div>
 
     <div id="adminArea" style="display:none; margin-top:12px">
       <div class="sep"></div>
-      <b>Admin: Grunddaten</b>
-      <div class="row">
+
+      <b>UI global</b>
+      <div class="row" style="margin-top:8px">
         <div>
-          <label>Stations-PIN setzen</label>
-          <input id="adminStationPin" placeholder="z.B. 9999"/>
-        </div>
-        <div style="align-self:flex-end">
-          <button onclick="adminSetStationPin()">Speichern</button>
-        </div>
-      </div>
-      <div class="row" style="margin-top:10px">
-        <div>
-          <label>Tage Vergangenheit</label>
-          <input id="daysPast" inputmode="numeric" placeholder="1"/>
+          <label>Layout</label>
+          <select id="uiLayout">
+            <option value="list">Standard (Liste)</option>
+            <option value="cards">Karten</option>
+          </select>
         </div>
         <div>
-          <label>Tage Zukunft</label>
-          <input id="daysFuture" inputmode="numeric" placeholder="6"/>
+          <label>Design</label>
+          <select id="uiTheme">
+            <option value="standard">Standard</option>
+            <option value="highcontrast">High-Contrast</option>
+          </select>
         </div>
-        <div style="align-self:flex-end">
-          <button onclick="adminSetDays()">Speichern</button>
-        </div>
+        <button onclick="adminSaveUI()">Speichern</button>
       </div>
 
       <div class="sep"></div>
-      <b>Admin: Wasch-Zeiten</b>
-      <div class="muted">Kommagetrennt, z.B. 06:00,08:00,...</div>
+
+      <b>Tage-Fenster</b>
+      <div class="row" style="margin-top:8px">
+        <div>
+          <label>Vergangene Tage</label>
+          <input id="daysPast" inputmode="numeric" placeholder="1"/>
+        </div>
+        <div>
+          <label>Kommende Tage</label>
+          <input id="daysFuture" inputmode="numeric" placeholder="6"/>
+        </div>
+        <button onclick="adminSaveDays()">Speichern</button>
+      </div>
+
+      <div class="sep"></div>
+
+      <b>Wasch-Zeiten</b>
+      <div class="muted">Kommagetrennt, z.B. 06:00,08:00,10:00,...</div>
       <div class="row" style="margin-top:8px">
         <input id="washerTimes" style="min-width:320px" placeholder="06:00,08:00,10:00,..."/>
         <button onclick="adminSetTimes()">Speichern</button>
       </div>
 
       <div class="sep"></div>
-      <b>Admin: News</b>
+
+      <b>News</b>
       <div class="row" style="margin-top:8px">
-        <input id="newsText" style="min-width:320px" placeholder="Text oben (optional)"/>
+        <input id="adminNewsText" style="min-width:320px" placeholder="Text für Users"/>
         <label style="display:flex;align-items:center;gap:8px;margin:0">
-          <input type="checkbox" id="newsEnabled"/> aktiv
+          <input type="checkbox" id="adminNewsEnabled"/> aktiv
         </label>
-        <button onclick="adminSetNews()">Speichern</button>
+        <button onclick="adminSaveNews()">Speichern</button>
       </div>
 
       <div class="row" style="margin-top:10px">
@@ -151,7 +200,6 @@
   </div>
 
 <script>
-  // SET THIS:
   const API_BASE = "https://snowy-breeze-54f8.schluffi1220.workers.dev";
 
   function apiUrl(path){
@@ -179,6 +227,12 @@
     el.className = ok ? "muted ok" : "muted err";
   }
 
+  function togglePins(){
+    const show = document.getElementById("showPins").checked;
+    document.getElementById("pin").type = show ? "text" : "password";
+    document.getElementById("stationPin").type = show ? "text" : "password";
+  }
+
   function fmt(ms){
     const d = new Date(ms);
     const dd = String(d.getDate()).padStart(2,"0");
@@ -191,25 +245,45 @@
 
   let STATUS = null;
 
+  function applyUiFromConfig(cfg){
+    document.body.classList.toggle("ui-cards", cfg?.uiLayout === "cards");
+    document.body.classList.toggle("ui-hc", cfg?.uiTheme === "highcontrast");
+  }
+
   async function refreshAll(){
     setMsg("msg","Lade…",true);
     const st = await jget("/api/status");
     if (!st.ok) { setMsg("msg", "Fehler: "+(st.message||st.error||"unknown"), false); return; }
     STATUS = st;
+
     document.getElementById("buildInfo").textContent = `build: ${st.build}`;
+
+    // news
+    if (st.newsText && st.newsText.trim()){
+      document.getElementById("newsCard").style.display = "block";
+      document.getElementById("newsText").textContent = st.newsText;
+    } else {
+      document.getElementById("newsCard").style.display = "none";
+    }
+
+    // apply UI (global)
+    applyUiFromConfig(st.config);
 
     // fill admin defaults
     if (st.config){
       document.getElementById("daysPast").value = st.config.daysPast ?? "";
       document.getElementById("daysFuture").value = st.config.daysFuture ?? "";
       document.getElementById("washerTimes").value = (st.config.washerTimes||[]).join(",");
-      document.getElementById("newsText").value = st.newsText || "";
-      document.getElementById("newsEnabled").checked = !!(st.newsText && st.newsText.length);
+      document.getElementById("uiLayout").value = st.config.uiLayout || "list";
+      document.getElementById("uiTheme").value = st.config.uiTheme || "standard";
+      document.getElementById("adminNewsText").value = st.newsText || "";
+      document.getElementById("adminNewsEnabled").checked = !!(st.newsText && st.newsText.trim().length);
     }
 
     renderMachines();
     await loadSlots();
     await loadMyBookings();
+
     setMsg("msg","OK",true);
   }
 
@@ -218,8 +292,8 @@
     el.innerHTML = "";
     const machines = (STATUS?.machines || []);
     const bookings = (STATUS?.bookings || []);
-
     const now = Date.now();
+
     function statusFor(m){
       if (m.defect) return { cls:"defect", label:"defekt" };
       const active = bookings.find(b => b.type===m.type && b.machine===m.machine && b.status==="booked" && b.start<=now && b.end>now);
@@ -230,14 +304,14 @@
     }
 
     for (const m of machines){
+      if (m.type !== "washer") continue; // erstmal nur Waschmaschinen im Fokus
       const s = statusFor(m);
       const div = document.createElement("div");
-      div.className = "machine";
-      const name = (m.type==="washer" ? "Waschmaschine" : "Trockner") + " " + m.machine;
+      div.className = "machineRow";
       div.innerHTML = `
         <div>
           <span class="dot ${s.cls}"></span>
-          <b>${name}</b>
+          <b>Waschmaschine ${m.machine}</b>
           <div class="muted small">${s.label}</div>
         </div>
         <div class="muted small">${m.lastRoom ? ("zuletzt: "+m.lastRoom) : ""}</div>
@@ -255,15 +329,30 @@
 
     for (const s of res.slots){
       const div = document.createElement("div");
-      div.className = "slot" + (s.disabled ? " disabled" : "");
+      div.className = "slotRow" + (s.disabled ? " disabled" : "");
+
       const badge = s.disabled ? `<span class="badge b-red">belegt</span>` : `<span class="badge b-green">frei</span>`;
+      const machines = (s.freeMachines || []).join(", ");
+      const machineSelect = s.disabled
+        ? `<span class="muted small">Maschinen: ${machines || "-"}</span>`
+        : `
+          <label class="muted small" style="margin:0">
+            Maschine:
+            <select data-start="${s.start}">
+              <option value="">auto</option>
+              ${(s.freeMachines||[]).map(m => `<option value="${m}">${m}</option>`).join("")}
+            </select>
+          </label>
+        `;
+
       div.innerHTML = `
         <div>
           <div><b>${s.label}</b></div>
-          <div class="muted small">Start: ${fmt(s.start)}</div>
+          <div class="muted small">frei: ${machines || "-"}</div>
         </div>
         <div class="row" style="align-items:center">
           ${badge}
+          ${machineSelect}
           <button ${s.disabled ? "disabled":""} onclick="bookWasher(${s.start})">Buchen</button>
         </div>
       `;
@@ -271,32 +360,27 @@
     }
   }
 
- async function bookWasher(start){
-  const room = val("room");
-  const pin = val("pin");
-  const stationPin = val("stationPin");
+  async function bookWasher(start){
+    const room = val("room");
+    const pin = val("pin");
+    const stationPin = val("stationPin");
 
-  setMsg("msg","Buche…",true);
+    // read selected machine (if any)
+    const sel = document.querySelector(`select[data-start="${start}"]`);
+    const machine = sel && sel.value ? Number(sel.value) : null;
 
-  const res = await jpost("/api/washer/book", { room, pin, stationPin, start });
+    setMsg("msg","Buche…",true);
+    const res = await jpost("/api/washer/book", { room, pin, stationPin, start, machine });
 
-  if (!res.ok){
-    const full = JSON.stringify(res, null, 2);
-    setMsg("msg","Buchen fehlgeschlagen: " + (res.message||res.error||"unknown"), false);
-    // Fallback: immer sichtbar
-    alert("Buchung Fehler:\n\n" + full);
-    return;
+    if (!res.ok){
+      setMsg("msg","Buchen fehlgeschlagen: " + (res.message||res.error||"unknown"), false);
+      alert("Buchung Fehler:\n\n" + JSON.stringify(res, null, 2));
+      return;
+    }
+
+    setMsg("msg",`✅ Gebucht: Waschmaschine ${res.machine} (${fmt(res.start)}–${fmt(res.end)})`, true);
+    await refreshAll();
   }
-
-  // Erfolg sicher anzeigen
-  setMsg("msg",`✅ Gebucht: Waschmaschine ${res.machine} (${fmt(res.start)}–${fmt(res.end)})`, true);
-  alert(`✅ Gebucht!\n\nWaschmaschine ${res.machine}\n${fmt(res.start)} – ${fmt(res.end)}`);
-
-  // sofort UI aktualisieren
-  await refreshAll();
-}
-
-
 
   async function loadMyBookings(){
     const el = document.getElementById("myBookings");
@@ -304,6 +388,7 @@
     const room = val("room");
     const pin = val("pin");
     if (!room || !pin){ el.innerHTML = `<div class="muted">Bitte Zimmernummer + PIN eingeben.</div>`; return; }
+
     const res = await jpost("/api/my-bookings", { room, pin });
     if (!res.ok){ el.innerHTML = `<div class="err">Fehler: ${res.error||res.message}</div>`; return; }
 
@@ -314,7 +399,7 @@
 
     for (const b of res.bookings){
       const div = document.createElement("div");
-      div.className = "slot";
+      div.className = "slotRow";
       div.innerHTML = `
         <div>
           <div><b>${b.type==="washer"?"Waschmaschine":"Trockner"} ${b.machine}</b></div>
@@ -333,7 +418,11 @@
     const pin = val("pin");
     setMsg("msg","Storniere…",true);
     const res = await jpost("/api/cancel", { id, pin });
-    if (!res.ok){ setMsg("msg","Storno fehlgeschlagen: "+(res.error||res.message), false); return; }
+    if (!res.ok){
+      setMsg("msg","Storno fehlgeschlagen: "+(res.error||res.message), false);
+      alert(JSON.stringify(res,null,2));
+      return;
+    }
     setMsg("msg","Storniert.",true);
     await refreshAll();
   }
@@ -344,12 +433,16 @@
     if (!room || !message){ setMsg("fbMsg","Bitte Zimmernummer + Nachricht.", false); return; }
     setMsg("fbMsg","Sende…",true);
     const res = await jpost("/api/feedback", { room, message });
-    if (!res.ok){ setMsg("fbMsg","Fehler: "+(res.error||res.message), false); return; }
+    if (!res.ok){
+      setMsg("fbMsg","Fehler: "+(res.error||res.message), false);
+      alert(JSON.stringify(res,null,2));
+      return;
+    }
     document.getElementById("fbText").value = "";
     setMsg("fbMsg","Gesendet.",true);
   }
 
-  // -------- Admin --------
+  // Admin: Enter = Login
   document.getElementById("adminPw").addEventListener("keydown", (e)=>{
     if (e.key === "Enter") adminLogin();
   });
@@ -363,42 +456,49 @@
     document.getElementById("adminArea").style.display = "block";
   }
 
-  async function adminSetStationPin(){
-    const adminPassword = val("adminPw");
-    const stationPin = val("adminStationPin");
-    setMsg("adminSaveMsg","Speichere…",true);
-    const res = await jpost("/api/admin/set-station-pin", { adminPassword, stationPin });
-    if (!res.ok){ setMsg("adminSaveMsg","Fehler: "+(res.error||res.message), false); return; }
-    setMsg("adminSaveMsg","Gespeichert.",true);
-  }
-
-  async function adminSetDays(){
-    const adminPassword = val("adminPw");
-    const daysPast = Number(val("daysPast"));
-    const daysFuture = Number(val("daysFuture"));
-    // NOTE: endpoint exists only in next worker iteration; for now just show hint
-    setMsg("adminSaveMsg","Days-Window Endpoint kommt im nächsten Worker-Update.",false);
-  }
-
   async function adminSetTimes(){
     const adminPassword = val("adminPw");
     const times = val("washerTimes").split(",").map(s=>s.trim()).filter(Boolean);
     setMsg("adminSaveMsg","Speichere…",true);
     const res = await jpost("/api/admin/set-washer-times", { adminPassword, times });
-    if (!res.ok){ setMsg("adminSaveMsg","Fehler: "+(res.error||res.message), false); return; }
+    if (!res.ok){ setMsg("adminSaveMsg","Fehler: "+(res.error||res.message), false); alert(JSON.stringify(res,null,2)); return; }
     setMsg("adminSaveMsg","Gespeichert.",true);
     await refreshAll();
   }
 
-  async function adminSetNews(){
+  async function adminSaveDays(){
     const adminPassword = val("adminPw");
-    const text = val("newsText");
-    const enabled = document.getElementById("newsEnabled").checked;
-    // NOTE: endpoint exists only in next worker iteration; for now just show hint
-    setMsg("adminSaveMsg","News-Endpoint kommt im nächsten Worker-Update.",false);
+    const daysPast = Number(val("daysPast"));
+    const daysFuture = Number(val("daysFuture"));
+    setMsg("adminSaveMsg","Speichere…",true);
+    const res = await jpost("/api/admin/set-days-window", { adminPassword, daysPast, daysFuture });
+    if (!res.ok){ setMsg("adminSaveMsg","Fehler: "+(res.error||res.message), false); alert(JSON.stringify(res,null,2)); return; }
+    setMsg("adminSaveMsg","Gespeichert.",true);
+    await refreshAll();
   }
 
-  // auto-load once
+  async function adminSaveUI(){
+    const adminPassword = val("adminPw");
+    const uiLayout = val("uiLayout");
+    const uiTheme = val("uiTheme");
+    setMsg("adminSaveMsg","Speichere…",true);
+    const res = await jpost("/api/admin/set-ui", { adminPassword, uiLayout, uiTheme });
+    if (!res.ok){ setMsg("adminSaveMsg","Fehler: "+(res.error||res.message), false); alert(JSON.stringify(res,null,2)); return; }
+    setMsg("adminSaveMsg","Gespeichert.",true);
+    await refreshAll();
+  }
+
+  async function adminSaveNews(){
+    const adminPassword = val("adminPw");
+    const text = val("adminNewsText");
+    const enabled = document.getElementById("adminNewsEnabled").checked;
+    setMsg("adminSaveMsg","Speichere…",true);
+    const res = await jpost("/api/admin/news/set", { adminPassword, text, enabled });
+    if (!res.ok){ setMsg("adminSaveMsg","Fehler: "+(res.error||res.message), false); alert(JSON.stringify(res,null,2)); return; }
+    setMsg("adminSaveMsg","Gespeichert.",true);
+    await refreshAll();
+  }
+
   refreshAll();
 </script>
 </body>
