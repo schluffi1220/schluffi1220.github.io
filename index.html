@@ -5,6 +5,15 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <title>Wasch-Portal</title>
 <style>
+  :root{
+    --dot-free:#2e7d32;
+    --dot-busy:#1565c0;
+    --dot-bad:#c62828;     /* Standard rot */
+  }
+  body.theme-highcontrast{
+    --dot-bad:#d81b60;     /* High-Contrast Magenta */
+  }
+
   body { font-family: Arial, sans-serif; margin: 14px; max-width: 980px; }
   h1 { margin: 0 0 6px; }
   h2 { margin: 14px 0 8px; }
@@ -21,9 +30,9 @@
   .grid { display: grid; grid-template-columns: 1fr; gap: 10px; }
   @media (min-width: 760px){ .grid2 { grid-template-columns: 1fr 1fr; } }
   .card { border: 1px solid #ddd; border-radius: 12px; padding: 12px; }
-  .free { background: #e8f5e9; }      /* grün */
-  .busy { background: #e3f2fd; }      /* blau */
-  .bad  { background: #ffebee; }      /* rot */
+  .free { background: #e8f5e9; }
+  .busy { background: #e3f2fd; }
+  .bad  { background: #ffebee; }
   .disabled { opacity: 0.7; }
   .muted { opacity: 0.85; }
   .small { font-size: 13px; opacity: 0.9; }
@@ -32,7 +41,6 @@
   .link { font-size: 14px; text-decoration: underline; cursor: pointer; opacity: 0.85; user-select:none; }
   .row2 { display:grid; grid-template-columns: 1fr 1fr; gap:10px; }
 
-  /* Details: ganze Zeile klickbar */
   details summary {
     display: block;
     padding: 12px;
@@ -50,7 +58,7 @@
   .pill.blue { background:#e3f2fd; }
   .pill.green { background:#e8f5e9; }
 
-  /* ===== Variante B: kompakte Maschinenliste ===== */
+  /* Variante B: kompakte Maschinenliste */
   .machine-row {
     display: grid;
     grid-template-columns: 26px 1fr auto;
@@ -60,10 +68,10 @@
     border-bottom: 1px solid #e0e0e0;
   }
   .machine-row:last-child { border-bottom: none; }
-  .machine-status { width: 14px; height: 14px; border-radius: 50%; }
-  .machine-status.free { background: #2e7d32; }
-  .machine-status.busy { background: #1565c0; }
-  .machine-status.bad  { background: #c62828; }
+  .machine-status { width: 16px; height: 16px; border-radius: 50%; outline: 2px solid rgba(0,0,0,0.06); }
+  .machine-status.free { background: var(--dot-free); }
+  .machine-status.busy { background: var(--dot-busy); }
+  .machine-status.bad  { background: var(--dot-bad); outline: 2px solid rgba(0,0,0,0.10); }
   .machine-title { font-weight: bold; }
   .machine-sub { font-size: 13px; opacity: 0.85; }
   .machine-actions button { width:auto; padding: 6px 10px; font-size: 14px; margin-top:0; }
@@ -79,7 +87,6 @@
   <div class="link" onclick="toggleAdmin()">Admin</div>
 </div>
 
-<!-- NEWS (nur auto-open wenn neu) -->
 <details id="newsDetails" style="margin-top:10px; display:none;">
   <summary><b>Neu in der Version</b> <span id="newsBadge" class="pill" style="display:none;">NEU</span></summary>
   <div class="card" style="border-top-left-radius:0;border-top-right-radius:0;">
@@ -108,7 +115,6 @@
 </select>
 <button onclick="bookWasher()">Buchen</button>
 
-<!-- Maschinenübersicht: Variante B (unter 2) -->
 <h2>Maschinenübersicht</h2>
 <div id="machinesOverview" class="card"></div>
 
@@ -116,7 +122,6 @@
 <button onclick="loadMyBookings()">Meine Buchungen aktualisieren</button>
 <div id="myBookings" class="grid"></div>
 
-<!-- Defekt melden / freigeben: eins höher als Chat -->
 <details style="margin-top:14px;">
   <summary><b>Maschine als defekt melden / freigeben</b></summary>
   <div class="card" style="border-top-left-radius:0;border-top-right-radius:0;">
@@ -142,7 +147,6 @@
   </div>
 </details>
 
-<!-- Chat / Feedback -->
 <h2>Feedback / Chat</h2>
 <div class="card">
   <div class="small muted">Zimmer + PIN erforderlich. Admin kann Antworten “sichtbar für User” freigeben.</div>
@@ -154,7 +158,6 @@
   <div id="chatList" class="grid" style="margin-top:10px;"></div>
 </div>
 
-<!-- Admin Panel -->
 <div id="adminPanel" style="display:none; margin-top: 16px; border-top:1px solid #ddd; padding-top: 12px;">
   <h2>Admin</h2>
 
@@ -166,6 +169,28 @@
   </div>
 
   <div id="adminBody" style="display:none;">
+
+    <details open>
+      <summary><b>Design & Trocknerlaufzeit</b></summary>
+      <div class="card" style="border-top-left-radius:0;border-top-right-radius:0;">
+        <label>Design</label>
+        <select id="uiTheme">
+          <option value="standard">Standard</option>
+          <option value="highcontrast">High-Contrast (Magenta)</option>
+        </select>
+        <button onclick="adminSaveTheme()">Speichern</button>
+
+        <hr style="border:none;border-top:1px solid #eee;margin:12px 0;">
+
+        <label>Trocknerlaufzeit (nur für neue Buchungen)</label>
+        <select id="dryerMinutes">
+          <option value="60">1 Stunde</option>
+          <option value="90">1,5 Stunden</option>
+          <option value="120">2 Stunden</option>
+        </select>
+        <button onclick="adminSaveDryerMinutes()">Speichern</button>
+      </div>
+    </details>
 
     <details open>
       <summary><b>Stations-PIN</b></summary>
@@ -269,7 +294,6 @@
 </div>
 
 <script>
-/* ====== API BASE ====== */
 const API_BASE = "https://snowy-breeze-54f8.schluffi1220.workers.dev";
 
 const $ = (id) => document.getElementById(id);
@@ -293,10 +317,16 @@ function escapeHtml(s){
   return String(s||"").replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[m]));
 }
 function fmtTime(ms){
-  return new Date(ms).toLocaleTimeString("de-DE",{hour:"2-digit",minute:"2-digit"});
+  return new Date(Number(ms)).toLocaleTimeString("de-DE",{hour:"2-digit",minute:"2-digit"});
 }
 function fmtDate(ms){
-  return new Date(ms).toLocaleDateString("de-DE");
+  return new Date(Number(ms)).toLocaleDateString("de-DE");
+}
+function formatLogDetails(s){
+  s = String(s||"");
+  s = s.replace(/start=(\d+)/g, (_,ms)=>"start="+new Date(Number(ms)).toLocaleString("de-DE"));
+  s = s.replace(/end=(\d+)/g, (_,ms)=>"end="+new Date(Number(ms)).toLocaleString("de-DE"));
+  return escapeHtml(s);
 }
 
 function needAccess_(){
@@ -318,8 +348,16 @@ async function confirmAndRun(msg, fn){
 
 let lastStatus = null;
 let myBookingsCache = [];
+let userChatPopupShown = false;
+let adminSelectedRoom = null;
+let adminChatPopupShown = false;
 
-/* ------------------- NEWS behavior ------------------- */
+/* Theme apply */
+function applyTheme(theme){
+  document.body.classList.toggle("theme-highcontrast", theme === "highcontrast");
+}
+
+/* NEWS */
 function updateNewsUI(newsText){
   const details = $("newsDetails");
   const badge = $("newsBadge");
@@ -337,24 +375,19 @@ function updateNewsUI(newsText){
   const isNew = hash !== last;
 
   badge.style.display = isNew ? "inline-block" : "none";
-  details.open = isNew; // nur auto-open wenn neu
-  if(isNew){
-    localStorage.setItem("lastNewsHash", hash);
-  }
+  details.open = isNew;
+  if(isNew) localStorage.setItem("lastNewsHash", hash);
 }
 
-/* ------------------- Maschinenübersicht: Variante B ------------------- */
+/* Maschinenübersicht (Variante B) */
 function renderMachinesOverview(status){
   const box = $("machinesOverview");
   box.innerHTML = "";
 
   const machines = status.machines || [];
   const bookings = status.bookings || [];
-
   const active = new Map();
-  for(const b of bookings){
-    active.set(`${b.type}:${b.machine}`, b);
-  }
+  for(const b of bookings) active.set(`${b.type}:${b.machine}`, b);
 
   machines.sort((a,b)=>{
     if(a.type !== b.type) return a.type.localeCompare(b.type);
@@ -384,7 +417,6 @@ function renderMachinesOverview(status){
 
     const row = document.createElement("div");
     row.className = "machine-row";
-
     row.innerHTML = `
       <div class="machine-status ${statusClass}"></div>
       <div>
@@ -404,9 +436,7 @@ function renderMachinesOverview(status){
         btn.onclick = () => bookDryer(Number(m.machine));
         actions.appendChild(btn);
       } else {
-        const mine = myBookingsCache.find(x =>
-          x.type === "dryer" && Number(x.machine) === Number(m.machine)
-        );
+        const mine = myBookingsCache.find(x => x.type==="dryer" && Number(x.machine)===Number(m.machine));
         if(mine){
           const btn = document.createElement("button");
           btn.textContent = "FERTIG";
@@ -420,7 +450,7 @@ function renderMachinesOverview(status){
   }
 }
 
-/* ------------------- SLOTS ------------------- */
+/* Slots */
 async function loadWasherSlots(){
   const sel = $("washerSlotSelect");
   sel.innerHTML = `<option value="">Bitte auswählen</option>`;
@@ -462,7 +492,6 @@ async function bookWasher(){
 
   const val = $("washerSlotSelect").value;
   if(!val) return alert("Bitte Slot auswählen.");
-
   const slot = JSON.parse(val);
   if(!slot.bookable) return alert("Dieser Slot ist nicht buchbar.");
 
@@ -477,23 +506,21 @@ async function bookWasher(){
 
   if(data.ok) alert("Buchung erfolgreich.");
   else alert(data.error || "Fehler beim Buchen.");
-
   await refreshAll();
 }
 
 async function bookDryer(machine){
   const { room, pin, stationPin } = needAccess_();
   if(!room || !pin || !stationPin) return alert("Bitte Zimmernummer, PIN und Stations-PIN eingeben.");
-  if(!confirm("Trockner buchen (läuft 2 Stunden)?")) return;
+  if(!confirm("Trockner buchen?")) return;
 
   const { data } = await jpost("/api/dryer/book", { room, pin, stationPin, machine });
   if(data.ok) alert("Trockner gebucht.");
   else alert(data.error || "Fehler.");
-
   await refreshAll();
 }
 
-/* ------------------- MY BOOKINGS ------------------- */
+/* My bookings */
 async function loadMyBookings(){
   const box = $("myBookings");
   box.innerHTML = "";
@@ -565,7 +592,6 @@ async function cancelBooking(id){
   const { data } = await jpost("/api/cancel", { id, pin });
   if(data.ok) alert("Storniert.");
   else alert(data.error || "Fehler.");
-
   await refreshAll();
 }
 
@@ -577,11 +603,10 @@ async function finishDryer(id){
   const { data } = await jpost("/api/dryer/finish", { id, pin });
   if(data.ok) alert("Erledigt.");
   else alert(data.error || "Fehler.");
-
   await refreshAll();
 }
 
-/* ------------------- DEFECT ------------------- */
+/* Defect */
 async function userSetDefect(action){
   const { room, stationPin } = needAccess_();
   const type = $("defType").value;
@@ -596,13 +621,10 @@ async function userSetDefect(action){
   const { data } = await jpost("/api/user/set-defect", { stationPin, room, type, machine, action });
   if(data.ok) alert("Gespeichert.");
   else alert(data.error || "Fehler.");
-
   await refreshAll();
 }
 
-/* ------------------- CHAT (USER) ------------------- */
-let userChatPopupShown = false;
-
+/* Chat user */
 async function checkUserChatUnread(){
   const { room, pin } = needAccess_();
   if(!room || !pin) return;
@@ -616,7 +638,6 @@ async function checkUserChatUnread(){
       userChatPopupShown = true;
       alert("📩 Neue Nachricht vom Admin im Chat.");
     }
-    // Auto-laden wenn neue sichtbare Nachricht da ist
     await loadUserChat();
   }
 }
@@ -627,14 +648,9 @@ async function loadUserChat(){
   const { data } = await jpost("/api/chat/user/list", { room, pin });
   if(!data.ok) return alert(data.error || "Fehler");
 
-  renderUserChat(data.messages || []);
-}
-
-function renderUserChat(messages){
   const box = $("chatList");
   box.innerHTML = "";
-
-  for(const m of messages){
+  for(const m of data.messages || []){
     const c = document.createElement("div");
     const isAdmin = m.sender === "admin";
     c.className = `card ${isAdmin ? "busy" : "free"}`;
@@ -644,8 +660,7 @@ function renderUserChat(messages){
 }
 
 async function sendUserChat(){
-  const { room, pin } = needAccess_();
-  const stationPin = $("stationPin").value.trim();
+  const { room, pin, stationPin } = needAccess_();
   const text = $("chatText").value.trim();
   if(!room || !pin) return alert("Zimmernummer + PIN fehlen.");
   if(!stationPin) return alert("Stations-PIN fehlt (für Chat).");
@@ -658,7 +673,7 @@ async function sendUserChat(){
   await loadUserChat();
 }
 
-/* ------------------- ADMIN ------------------- */
+/* Admin show/hide */
 function toggleAdmin(){
   const p = $("adminPanel");
   p.style.display = (p.style.display==="none" ? "block" : "none");
@@ -670,6 +685,7 @@ function adminLogout(){
   alert("Admin ausgeloggt.");
 }
 
+/* Admin unlock + load state */
 async function adminUnlock(){
   const pw = adminPw_();
   if(!pw) return alert("Admin-Passwort eingeben.");
@@ -688,6 +704,11 @@ async function adminUnlock(){
   $("adminBody").style.display = "block";
 
   const st2 = await jget("/api/admin/state");
+
+  // Theme + Dryer minutes in UI
+  $("uiTheme").value = st2.uiTheme || "standard";
+  $("dryerMinutes").value = String(st2.dryerMinutes || 120);
+
   $("daysPast").value = st2.daysPast ?? 1;
   $("daysFuture").value = st2.daysFuture ?? 6;
 
@@ -701,6 +722,31 @@ async function adminUnlock(){
   await checkAdminChatUnread(true);
 
   alert("Admin freigeschaltet.");
+}
+
+/* Admin: save theme */
+async function adminSaveTheme(){
+  const pw = adminPw_();
+  if(!pw) return alert("Admin-Passwort fehlt.");
+  const uiTheme = $("uiTheme").value;
+
+  await confirmAndRun("Design wirklich speichern?", async ()=>{
+    const { data } = await jpost("/api/admin/set-ui-theme", { adminPassword: pw, uiTheme });
+    if(data.ok) await refreshAll();
+    return data;
+  });
+}
+
+/* Admin: save dryer minutes */
+async function adminSaveDryerMinutes(){
+  const pw = adminPw_();
+  if(!pw) return alert("Admin-Passwort fehlt.");
+  const dryerMinutes = Number($("dryerMinutes").value);
+
+  await confirmAndRun("Trocknerlaufzeit speichern? (gilt nur für neue Buchungen)", async ()=>{
+    const { data } = await jpost("/api/admin/set-dryer-duration", { adminPassword: pw, dryerMinutes });
+    return data;
+  });
 }
 
 function renderTimeGrid(selectedTimes){
@@ -871,10 +917,7 @@ async function adminChangePw(){
   });
 }
 
-/* ------------------- ADMIN CHAT ------------------- */
-let adminSelectedRoom = null;
-let adminChatPopupShown = false;
-
+/* Admin chat (unchanged) */
 async function checkAdminChatUnread(showPopup){
   const pw = adminPw_();
   if(!pw) return;
@@ -932,15 +975,10 @@ async function adminLoadChat(){
   const { data } = await jpost("/api/chat/admin/list", { adminPassword: pw, room: adminSelectedRoom });
   if(!data.ok) return alert(data.error || "Fehler");
 
-  renderAdminChat(data.messages || []);
-  await checkAdminChatUnread(false);
-}
-
-function renderAdminChat(messages){
   const box = $("adminChatList");
   box.innerHTML = "";
 
-  for(const m of messages){
+  for(const m of data.messages || []){
     const isAdmin = m.sender === "admin";
     const c = document.createElement("div");
     c.className = `card ${isAdmin ? "busy" : "free"}`;
@@ -962,23 +1000,10 @@ function renderAdminChat(messages){
       ${extra.join(" ")}
       <div style="margin-top:6px;">${escapeHtml(m.body)}</div>
     `;
-
-    if(isAdmin){
-      const chk = document.createElement("label");
-      chk.className = "small";
-      chk.style.marginTop = "10px";
-      chk.innerHTML = `<input type="checkbox" ${Number(m.visibleToUser)===1?"checked":""}> sichtbar für User`;
-      chk.querySelector("input").onchange = async (ev)=>{
-        const pw = adminPw_();
-        const { data } = await jpost("/api/chat/admin/set-visible", { adminPassword: pw, id: m.id, visibleToUser: ev.target.checked });
-        if(!data.ok) alert(data.error || "Fehler");
-        else await adminLoadChat();
-      };
-      c.appendChild(chk);
-    }
-
     box.appendChild(c);
   }
+
+  await checkAdminChatUnread(false);
 }
 
 async function adminSendChat(){
@@ -998,7 +1023,7 @@ async function adminSendChat(){
   await adminLoadChat();
 }
 
-/* ------------------- ADMIN LOG ------------------- */
+/* Admin Log (formatted) */
 async function adminLoadLog(){
   const pw = adminPw_();
   if(!pw) return alert("Admin-Passwort fehlt.");
@@ -1018,13 +1043,13 @@ async function adminLoadLog(){
         ${r.type ? `${escapeHtml(r.type)} ${escapeHtml(r.machine)}` : ""}
         ${r.room ? ` | Zimmer ${escapeHtml(r.room)}` : ""}
       </div>
-      <div class="small muted">${escapeHtml(r.details||"")}</div>
+      <div class="small muted">${formatLogDetails(r.details||"")}</div>
     `;
     box.appendChild(c);
   }
 }
 
-/* ------------------- REFRESH FLOW ------------------- */
+/* refresh */
 async function refreshAll(){
   setStatus("Aktualisiere…");
   const st = await jget("/api/status");
@@ -1034,6 +1059,7 @@ async function refreshAll(){
   }
   lastStatus = st;
 
+  applyTheme(st.config?.uiTheme || "standard");
   updateNewsUI(st.newsText || "");
 
   await loadMyBookings();
@@ -1045,7 +1071,7 @@ async function refreshAll(){
   setStatus("Bereit.");
 }
 
-/* -------- Enter im Admin-Passwortfeld = Login -------- */
+/* Enter = Admin Login */
 window.addEventListener("load", () => {
   const apw = document.getElementById("adminPw");
   if(apw){
@@ -1058,12 +1084,12 @@ window.addEventListener("load", () => {
   }
 });
 
-/* optional: Chat-Unread check alle 20s */
+/* chat check 20s */
 setInterval(() => {
   checkUserChatUnread().catch(()=>{});
 }, 20000);
 
-/* initial load */
+/* initial */
 refreshAll();
 </script>
 
