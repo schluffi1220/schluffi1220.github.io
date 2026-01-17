@@ -271,25 +271,31 @@
     }
   }
 
-  async function bookWasher(start){
+ async function bookWasher(start){
   const room = val("room");
   const pin = val("pin");
   const stationPin = val("stationPin");
+
   setMsg("msg","Buche…",true);
 
   const res = await jpost("/api/washer/book", { room, pin, stationPin, start });
 
   if (!res.ok){
-    // Zeig wirklich alles an (inkl. stack), damit wir es 1:1 fixen können
     const full = JSON.stringify(res, null, 2);
     setMsg("msg","Buchen fehlgeschlagen: " + (res.message||res.error||"unknown"), false);
-    alert("Buchung Fehler (bitte kopieren):\n\n" + full);
+    // Fallback: immer sichtbar
+    alert("Buchung Fehler:\n\n" + full);
     return;
   }
 
-  setMsg("msg",`Gebucht: Waschmaschine ${res.machine}`,true);
+  // Erfolg sicher anzeigen
+  setMsg("msg",`✅ Gebucht: Waschmaschine ${res.machine} (${fmt(res.start)}–${fmt(res.end)})`, true);
+  alert(`✅ Gebucht!\n\nWaschmaschine ${res.machine}\n${fmt(res.start)} – ${fmt(res.end)}`);
+
+  // sofort UI aktualisieren
   await refreshAll();
 }
+
 
 
   async function loadMyBookings(){
